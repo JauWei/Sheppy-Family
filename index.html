@@ -1395,7 +1395,8 @@ let justDragged = false;
 
 function onDragStart(e, index) {
   if (e.target.closest('.card-edit-btn')) return;
-  if (appSettings.grid_mode) return;
+  // 手機上強制 grid mode，不啟用拖曳，讓 click/tap 正常運作
+  if (appSettings.grid_mode || isMobile()) return;
   e.preventDefault();
   const card = e.currentTarget;
   const rect = card.getBoundingClientRect();
@@ -1504,7 +1505,17 @@ function renderLinks() {
     card.appendChild(label);
 
     card.addEventListener('mousedown', (e) => onDragStart(e, i));
-    card.addEventListener('touchstart', (e) => onDragStart(e, i), { passive: false });
+    card.addEventListener('touchstart', (e) => onDragStart(e, i), { passive: true });
+
+    // 手機上用 touchend 偵測 tap，桌面用 click
+    card.addEventListener('touchend', (e) => {
+      if (e.target.closest('.card-edit-btn')) return;
+      if (justDragged) { justDragged = false; return; }
+      // 沒有拖曳過 → 視為點擊
+      if (!dragState || !dragState.moved) {
+        window.open(link.url, '_blank');
+      }
+    });
     card.addEventListener('click', (e) => {
       if (e.target.closest('.card-edit-btn')) return;
       if (justDragged) { justDragged = false; return; }
