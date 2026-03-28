@@ -1464,7 +1464,7 @@ const MSG_KEY = 'familyMsgBoard';
 function loadMessages() {
   const raw = localStorage.getItem(MSG_KEY);
   if (raw) return JSON.parse(raw);
-  return { members: ['爸爸','媽媽','哥哥','姐姐','弟弟','妹妹'], messages: [] };
+  return { members: ['Dad','Mom','Chel','Layla','Chicken','Sheepy','Yolky'], messages: [] };
 }
 function saveMessages(d) { localStorage.setItem(MSG_KEY, JSON.stringify(d)); }
 
