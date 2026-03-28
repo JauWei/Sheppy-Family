@@ -1,0 +1,2024 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家庭首頁</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background-color: #1a1a2e;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* 頂部區域 */
+  .header {
+    text-align: center;
+    padding: 40px 20px 20px;
+    width: 100%;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    position: relative;
+  }
+  .header h1 {
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+    letter-spacing: 4px;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .header h1:hover { opacity: 0.85; }
+  .clock {
+    font-size: 1.1rem;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* 工具列 */
+  .toolbar {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+  }
+  .toolbar button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .toolbar button:hover { background: rgba(255,255,255,0.3); }
+  .toolbar button.active { background: rgba(108,99,255,0.6); }
+
+  /* 連結容器 - 自由定位模式 */
+  .links-container {
+    position: relative;
+    width: 100%;
+    min-height: calc(100vh - 140px);
+    padding: 20px;
+  }
+
+  /* 自動排列模式 */
+  .links-container.grid-mode {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    align-content: flex-start;
+    gap: 28px;
+    padding: 40px 24px;
+  }
+  .links-container.grid-mode .link-card {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+  }
+
+  /* 連結卡片 */
+  .link-card {
+    position: absolute;
+    cursor: pointer;
+    transition: filter 0.25s, box-shadow 0.25s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  .link-card:hover { filter: brightness(1.1); }
+  .link-card.dragging {
+    opacity: 0.8;
+    z-index: 50;
+    transition: none;
+    cursor: grabbing;
+  }
+
+  .link-card .card-img-wrap {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    position: relative;
+  }
+  .link-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+  .link-card .card-label {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .link-card .card-edit-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .link-card:hover .card-edit-btn { display: flex; }
+
+  /* 形狀 */
+  .shape-rectangle .card-img-wrap { border-radius: 12px; }
+  .shape-circle .card-img-wrap { border-radius: 50%; }
+  .shape-rounded .card-img-wrap { border-radius: 24px; }
+  .shape-flower .card-img-wrap {
+    clip-path: polygon(50% 0%, 63% 10%, 80% 2%, 82% 20%, 98% 27%, 90% 42%, 100% 58%, 88% 65%, 93% 82%, 77% 80%, 68% 95%, 55% 85%, 42% 97%, 33% 84%, 18% 92%, 17% 76%, 2% 68%, 12% 55%, 0% 40%, 13% 32%, 5% 17%, 22% 17%, 30% 2%, 40% 14%);
+    border-radius: 0;
+  }
+  .shape-star .card-img-wrap {
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    border-radius: 0;
+  }
+  .shape-heart .card-img-wrap {
+    clip-path: url(#heartClip);
+    border-radius: 0;
+  }
+  .shape-hexagon .card-img-wrap {
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    border-radius: 0;
+  }
+  .shape-diamond .card-img-wrap {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    border-radius: 0;
+  }
+
+  /* 邊框 */
+  .border-none .card-img-wrap { border: none; }
+  .border-thin .card-img-wrap { border: 2px solid #fff; }
+  .border-medium .card-img-wrap { border: 4px solid #fff; }
+  .border-thick .card-img-wrap { border: 6px solid #fff; }
+  .border-gold .card-img-wrap { border: 4px solid #ffd700; box-shadow: 0 0 12px rgba(255,215,0,0.4); }
+  .border-rainbow .card-img-wrap { border: 4px solid transparent; background-clip: padding-box; box-shadow: 0 0 0 4px #ff6b6b, 0 0 0 8px #ffd93d, 0 0 0 12px #6bcb77; }
+  .border-glow .card-img-wrap { border: 3px solid rgba(108,99,255,0.8); box-shadow: 0 0 16px rgba(108,99,255,0.5), 0 0 32px rgba(108,99,255,0.2); }
+  .border-shadow .card-img-wrap { border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .border-dashed .card-img-wrap { border: 3px dashed #fff; }
+  .border-double .card-img-wrap { border: 6px double #fff; }
+
+  /* 新增按鈕 */
+  .add-card {
+    width: 120px;
+    height: 90px;
+    border-radius: 16px;
+    border: 3px dashed rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 2.5rem;
+    color: rgba(255,255,255,0.4);
+    transition: border-color 0.3s, color 0.3s;
+    background: rgba(255,255,255,0.04);
+  }
+  .add-card:hover { border-color: rgba(255,255,255,0.6); color: rgba(255,255,255,0.7); }
+
+  /* 彈窗 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: #2a2a40;
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .modal h2 { margin-bottom: 20px; font-size: 1.3rem; }
+  .modal label { display: block; margin-bottom: 6px; font-size: 0.9rem; opacity: 0.8; }
+  .modal input[type="text"],
+  .modal input[type="url"],
+  .modal input[type="number"],
+  .modal select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  .modal select option { background: #2a2a40; color: #fff; }
+  .modal input:focus, .modal select:focus { border-color: #6c63ff; }
+
+  .modal input[type="color"] {
+    width: 60px;
+    height: 36px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: transparent;
+    padding: 0;
+  }
+
+  .modal .file-pick { margin-bottom: 16px; }
+  .modal .file-pick input[type="file"] { display: none; }
+  .modal .file-pick .pick-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #6c63ff;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+  }
+  .modal .file-pick .pick-btn:hover { background: #5a52d5; }
+  .modal .file-pick .file-name { margin-left: 10px; font-size: 0.85rem; opacity: 0.7; }
+
+  .modal .preview-img {
+    width: 100%;
+    max-height: 140px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .row { display: flex; gap: 12px; align-items: flex-end; }
+  .row > * { flex: 1; }
+
+  .shape-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .shape-opt {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s;
+    flex-direction: column;
+  }
+  .shape-opt:hover { border-color: rgba(255,255,255,0.4); }
+  .shape-opt.selected { border-color: #6c63ff; background: rgba(108,99,255,0.15); }
+  .shape-opt svg { width: 28px; height: 28px; fill: #fff; }
+  .shape-opt span { font-size: 0.6rem; margin-top: 2px; opacity: 0.7; }
+
+  .border-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .border-opt {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #fff;
+    transition: border-color 0.3s;
+  }
+  .border-opt:hover { border-color: rgba(255,255,255,0.4); }
+  .border-opt.selected { border-color: #6c63ff; background: rgba(108,99,255,0.15); }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .modal-actions button {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .btn-cancel { background: rgba(255,255,255,0.1); color: #fff; }
+  .btn-cancel:hover { background: rgba(255,255,255,0.2); }
+  .btn-save { background: #6c63ff; color: #fff; }
+  .btn-save:hover { background: #5a52d5; }
+  .btn-delete { background: #e74c3c; color: #fff; }
+  .btn-delete:hover { background: #c0392b; }
+
+  .range-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .range-row input[type="range"] { flex: 1; accent-color: #6c63ff; }
+  .range-row .range-val { min-width: 40px; text-align: center; font-size: 0.9rem; }
+
+  /* ========== 留言板 ========== */
+  .msgboard-panel {
+    position: fixed;
+    top: 0; right: -520px;
+    width: 500px; max-width: 94vw;
+    height: 100vh;
+    background: rgba(26,26,46,0.97);
+    backdrop-filter: blur(16px);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -6px 0 30px rgba(0,0,0,0.5);
+    transition: right 0.35s cubic-bezier(.4,0,.2,1);
+  }
+  .msgboard-panel.open { right: 0; }
+
+  .msgboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+  }
+  .msgboard-header h2 { font-size: 1.2rem; margin: 0; }
+  .msgboard-close {
+    width: 36px; height: 36px;
+    border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.1);
+    color: #fff; font-size: 20px;
+    cursor: pointer;
+  }
+  .msgboard-close:hover { background: rgba(255,255,255,0.2); }
+
+  /* 家庭成員管理 */
+  .members-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .members-bar .member-chip {
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(108,99,255,0.2);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .members-bar .member-chip .remove-member {
+    cursor: pointer; opacity: 0.5; font-size: 0.7rem;
+  }
+  .members-bar .member-chip .remove-member:hover { opacity: 1; }
+  .members-bar .add-member-btn {
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px dashed rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .members-bar .add-member-btn:hover { background: rgba(255,255,255,0.15); }
+
+  /* 篩選列 */
+  .msg-filter-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+  .msg-filter-bar select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 0.8rem;
+  }
+  .msg-filter-bar select option { background: #2a2a40; }
+  .msg-filter-bar .filter-label { opacity: 0.6; }
+  .msg-pin-toggle {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .msg-pin-toggle.active { background: rgba(255,193,7,0.2); border-color: #ffc107; }
+
+  /* 訊息列表 */
+  .msg-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .msg-list::-webkit-scrollbar { width: 5px; }
+  .msg-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  .msg-item {
+    border-radius: 14px;
+    padding: 14px;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .msg-item:hover { transform: translateX(-2px); }
+  .msg-item.pinned { border-left: 3px solid #ffc107; }
+
+  .msg-mood-default { background: rgba(255,255,255,0.06); }
+  .msg-mood-happy { background: rgba(255,193,7,0.12); }
+  .msg-mood-love { background: rgba(233,30,99,0.12); }
+  .msg-mood-sad { background: rgba(33,150,243,0.12); }
+  .msg-mood-angry { background: rgba(244,67,54,0.12); }
+  .msg-mood-excited { background: rgba(76,175,80,0.12); }
+
+  .msg-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .msg-author {
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+  .msg-arrow { opacity: 0.4; font-size: 0.85rem; }
+  .msg-to { font-size: 0.9rem; opacity: 0.8; }
+  .msg-date {
+    margin-left: auto;
+    font-size: 0.75rem;
+    opacity: 0.45;
+    white-space: nowrap;
+  }
+
+  .msg-body {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    word-break: break-word;
+  }
+
+  .msg-photo {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    object-fit: cover;
+  }
+  .msg-photo:hover { opacity: 0.9; }
+
+  .msg-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .msg-react-btn {
+    padding: 3px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .msg-react-btn:hover { background: rgba(255,255,255,0.12); }
+  .msg-react-btn.reacted { background: rgba(108,99,255,0.2); border-color: rgba(108,99,255,0.4); }
+
+  .msg-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .msg-act-btn {
+    padding: 3px 8px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .msg-item:hover .msg-act-btn { opacity: 0.5; }
+  .msg-act-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.1); }
+
+  /* 回覆列表 */
+  .msg-replies {
+    margin-top: 10px;
+    padding-left: 14px;
+    border-left: 2px solid rgba(255,255,255,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg-reply {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+  }
+  .reply-top {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .reply-author { font-weight: bold; font-size: 0.85rem; }
+  .reply-date { font-size: 0.7rem; opacity: 0.4; margin-left: auto; }
+  .reply-body { line-height: 1.5; word-break: break-word; }
+
+  .reply-input-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .reply-input-row input {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  .reply-input-row button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #6c63ff;
+    color: #fff;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+
+  /* 發送區域 */
+  .msg-compose {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 14px 20px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(0,0,0,0.2);
+  }
+  .compose-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .compose-row select, .compose-row input {
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 0.88rem;
+    outline: none;
+  }
+  .compose-row select { max-width: 120px; }
+  .compose-row select option { background: #2a2a40; }
+  .compose-row input { flex: 1; }
+
+  .compose-text-wrap {
+    position: relative;
+  }
+  .compose-textarea {
+    width: 100%;
+    min-height: 60px;
+    max-height: 120px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 0.95rem;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+  }
+  .compose-textarea:focus { border-color: #6c63ff; }
+
+  .compose-tools {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .compose-tool-btn {
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .compose-tool-btn:hover { background: rgba(255,255,255,0.12); }
+
+  .compose-photo-preview {
+    max-height: 80px;
+    border-radius: 8px;
+    display: none;
+    position: relative;
+  }
+  .compose-photo-preview img {
+    max-height: 80px;
+    border-radius: 8px;
+  }
+  .compose-photo-remove {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .compose-send-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .mood-select {
+    display: flex;
+    gap: 4px;
+  }
+  .mood-opt {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s;
+  }
+  .mood-opt:hover { border-color: rgba(255,255,255,0.3); }
+  .mood-opt.selected { border-color: #6c63ff; }
+
+  .send-btn {
+    padding: 8px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #6c63ff;
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+  .send-btn:hover { background: #5a52d5; }
+
+  /* Emoji 面板 */
+  .emoji-panel {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 320px;
+    max-height: 260px;
+    background: #2a2a40;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    z-index: 10;
+    overflow: hidden;
+    flex-direction: column;
+    margin-bottom: 6px;
+  }
+  .emoji-panel.open { display: flex; }
+  .emoji-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    overflow-x: auto;
+  }
+  .emoji-tab {
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: #fff;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+  .emoji-tab:hover { opacity: 0.8; }
+  .emoji-tab.active { opacity: 1; border-bottom: 2px solid #6c63ff; }
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    overflow-y: auto;
+    max-height: 200px;
+  }
+  .emoji-grid::-webkit-scrollbar { width: 4px; }
+  .emoji-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  .emoji-cell {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .emoji-cell:hover { background: rgba(255,255,255,0.12); }
+
+  /* 照片燈箱 */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img {
+    max-width: 92vw;
+    max-height: 92vh;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .msg-empty {
+    text-align: center;
+    opacity: 0.3;
+    padding: 40px 20px;
+    font-size: 0.95rem;
+  }
+
+  /* ========== RWD 響應式設計 ========== */
+
+  /* --- 平板 (<= 768px) --- */
+  @media (max-width: 768px) {
+    .header { padding: 30px 14px 14px; }
+    .header h1 { letter-spacing: 2px; }
+    .clock { font-size: 0.95rem; }
+
+    .toolbar { top: 10px; right: 10px; gap: 6px; }
+    .toolbar button { width: 38px; height: 38px; font-size: 17px; }
+
+    .links-container { padding: 14px; }
+    .links-container.grid-mode { gap: 18px; padding: 24px 14px; }
+
+    .add-card { width: 100px; height: 75px; font-size: 2rem; }
+
+    .modal { padding: 20px; max-width: 95vw; }
+    .modal h2 { font-size: 1.15rem; }
+
+    .shape-options { gap: 6px; }
+    .shape-opt { width: 44px; height: 44px; }
+    .shape-opt svg { width: 22px; height: 22px; }
+
+    .border-options { gap: 6px; }
+    .border-opt { padding: 5px 9px; font-size: 0.75rem; }
+
+    /* 留言板全寬 */
+    .msgboard-panel { width: 100vw; max-width: 100vw; right: -100vw; }
+    .msgboard-panel.open { right: 0; }
+
+    .emoji-panel { width: 280px; }
+    .emoji-grid { grid-template-columns: repeat(7, 1fr); }
+    .emoji-cell { font-size: 20px; }
+  }
+
+  /* --- 手機 (<= 480px) --- */
+  @media (max-width: 480px) {
+    .header { padding: 24px 10px 10px; }
+    .header h1 { letter-spacing: 1px; word-break: break-word; max-width: 70vw; }
+    .clock { font-size: 0.85rem; }
+
+    .toolbar { top: 8px; right: 8px; gap: 5px; }
+    .toolbar button { width: 34px; height: 34px; font-size: 15px; }
+
+    /* 手機上強制自動排列，避免卡片跑出螢幕 */
+    .links-container {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      justify-content: center !important;
+      align-items: flex-start !important;
+      align-content: flex-start !important;
+      gap: 14px !important;
+      padding: 16px 10px !important;
+      min-height: auto;
+    }
+    .links-container .link-card {
+      position: relative !important;
+      left: auto !important;
+      top: auto !important;
+    }
+
+    .add-card { width: 80px; height: 60px; font-size: 1.8rem; border-width: 2px; }
+
+    /* 卡片編輯按鈕在手機上永遠顯示 */
+    .link-card .card-edit-btn { display: flex !important; }
+
+    .modal-overlay { padding: 10px; }
+    .modal { padding: 16px; border-radius: 12px; max-height: 94vh; }
+    .modal h2 { font-size: 1.05rem; margin-bottom: 14px; }
+    .modal label { font-size: 0.82rem; }
+    .modal input[type="text"],
+    .modal input[type="url"],
+    .modal input[type="number"],
+    .modal select { padding: 8px 10px; font-size: 0.88rem; margin-bottom: 12px; }
+
+    .row { flex-direction: column; gap: 0; }
+
+    .shape-options { gap: 5px; }
+    .shape-opt { width: 38px; height: 38px; }
+    .shape-opt svg { width: 20px; height: 20px; }
+    .shape-opt span { font-size: 0.5rem; }
+
+    .border-options { gap: 4px; }
+    .border-opt { padding: 4px 7px; font-size: 0.7rem; }
+
+    .modal-actions { gap: 8px; }
+    .modal-actions button { padding: 8px 16px; font-size: 0.88rem; }
+
+    .range-row { gap: 8px; }
+
+    /* 留言板 */
+    .msgboard-header { padding: 14px; }
+    .msgboard-header h2 { font-size: 1.05rem; }
+
+    .members-bar { padding: 8px 14px; gap: 5px; }
+    .members-bar .member-chip { padding: 3px 8px; font-size: 0.75rem; }
+
+    .msg-filter-bar { padding: 8px 14px; gap: 5px; font-size: 0.8rem; flex-wrap: wrap; }
+    .msg-filter-bar select { font-size: 0.75rem; padding: 3px 6px; }
+
+    .msg-list { padding: 10px 14px; gap: 10px; }
+    .msg-item { padding: 11px; border-radius: 11px; }
+    .msg-item:hover { transform: none; }
+    .msg-author { font-size: 0.88rem; }
+    .msg-body { font-size: 0.88rem; }
+    .msg-date { font-size: 0.7rem; }
+    .msg-photo { max-height: 160px; }
+
+    .msg-react-btn { padding: 2px 6px; font-size: 0.75rem; }
+    .msg-act-btn { opacity: 0.5 !important; padding: 2px 6px; }
+
+    .msg-replies { padding-left: 10px; }
+    .msg-reply { padding: 6px 10px; font-size: 0.82rem; }
+
+    .reply-input-row input { padding: 5px 8px; font-size: 0.8rem; }
+    .reply-input-row button { padding: 5px 10px; font-size: 0.78rem; }
+
+    .msg-compose { padding: 10px 14px; gap: 8px; }
+    .compose-row select, .compose-row input { padding: 6px 8px; font-size: 0.82rem; }
+    .compose-row select { max-width: 100px; }
+    .compose-textarea { min-height: 50px; padding: 8px 10px; font-size: 0.88rem; }
+    .compose-tool-btn { padding: 4px 8px; font-size: 0.82rem; }
+    .compose-photo-preview { max-height: 60px; }
+    .compose-photo-preview img { max-height: 60px; }
+
+    .mood-opt { width: 26px; height: 26px; font-size: 14px; }
+    .send-btn { padding: 7px 16px; font-size: 0.88rem; }
+
+    .emoji-panel {
+      width: calc(100vw - 28px);
+      left: 50%;
+      transform: translateX(-50%);
+      max-height: 240px;
+    }
+    .emoji-grid { grid-template-columns: repeat(7, 1fr); padding: 6px; }
+    .emoji-cell { font-size: 18px; }
+    .emoji-tab { padding: 6px 8px; font-size: 14px; }
+
+    /* 照片燈箱 */
+    .lightbox img { max-width: 96vw; max-height: 80vh; border-radius: 4px; }
+  }
+
+  /* --- 超小螢幕 (<= 360px) --- */
+  @media (max-width: 360px) {
+    .header { padding: 20px 8px 8px; }
+    .toolbar { gap: 4px; }
+    .toolbar button { width: 30px; height: 30px; font-size: 13px; }
+
+    .links-container { gap: 10px !important; padding: 12px 8px !important; }
+
+    .shape-opt { width: 34px; height: 34px; }
+    .shape-opt svg { width: 18px; height: 18px; }
+    .shape-opt span { display: none; }
+
+    .modal { padding: 12px; }
+
+    .msg-compose { padding: 8px 10px; }
+    .compose-row { flex-wrap: wrap; }
+    .mood-select { gap: 2px; }
+    .mood-opt { width: 24px; height: 24px; font-size: 13px; }
+  }
+
+  /* 觸控裝置: 不用 hover */
+  @media (hover: none) {
+    .link-card .card-edit-btn { display: flex !important; }
+    .msg-act-btn { opacity: 0.5 !important; }
+    .msg-item:hover { transform: none; }
+    .link-card:hover { filter: none; }
+  }
+</style>
+
+<!-- SVG clip paths for special shapes -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <clipPath id="heartClip" clipPathUnits="objectBoundingBox">
+      <path d="M0.5,0.15 C0.5,0.05 0.65,-0.05 0.8,0.05 C0.95,0.15 1,0.35 0.5,0.95 C0,0.35 0.05,0.15 0.2,0.05 C0.35,-0.05 0.5,0.05 0.5,0.15 Z"/>
+    </clipPath>
+  </defs>
+</svg>
+</head>
+<body>
+
+<div class="toolbar">
+  <button onclick="toggleMsgBoard()" title="留言板">✉</button>
+  <button onclick="autoArrange()" title="自動排列">⊞</button>
+  <button onclick="openTitleModal()" title="標題設定">T</button>
+  <button onclick="openBgModal()" title="更換背景">⚙</button>
+</div>
+
+<div class="header">
+  <h1 id="mainTitle" onclick="openTitleModal()">我的家庭首頁</h1>
+  <div class="clock" id="clock"></div>
+</div>
+
+<div class="links-container" id="linksContainer"></div>
+
+<!-- 背景設定彈窗 -->
+<div class="modal-overlay" id="bgModal">
+  <div class="modal">
+    <h2>更換背景圖片</h2>
+    <div class="file-pick">
+      <label>從電腦選擇圖片</label>
+      <label class="pick-btn" for="bgFileInput">選擇檔案</label>
+      <input type="file" id="bgFileInput" accept="image/*">
+      <span class="file-name" id="bgFileName"></span>
+    </div>
+    <label>或輸入圖片網址</label>
+    <input type="url" id="bgUrlInput" placeholder="https://example.com/image.jpg">
+    <img class="preview-img" id="bgPreview">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('bgModal')">取消</button>
+      <button class="btn-delete" onclick="resetBg()">恢復預設</button>
+      <button class="btn-save" onclick="saveBg()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 標題設定彈窗 -->
+<div class="modal-overlay" id="titleModal">
+  <div class="modal">
+    <h2>標題設定</h2>
+    <label>標題文字</label>
+    <input type="text" id="titleText" placeholder="我的家庭首頁">
+    <label>字型</label>
+    <select id="titleFont">
+      <option value="'Microsoft JhengHei', sans-serif">微軟正黑體</option>
+      <option value="'DFKai-SB', serif">標楷體</option>
+      <option value="'PMingLiU', serif">新細明體</option>
+      <option value="'Noto Sans TC', sans-serif">Noto Sans TC</option>
+      <option value="'Arial', sans-serif">Arial</option>
+      <option value="'Georgia', serif">Georgia</option>
+      <option value="'Comic Sans MS', cursive">Comic Sans</option>
+      <option value="'Courier New', monospace">Courier New</option>
+      <option value="'Impact', sans-serif">Impact</option>
+      <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+    </select>
+    <div class="row">
+      <div>
+        <label>文字大小 (px)</label>
+        <input type="number" id="titleSize" min="16" max="120" value="40">
+      </div>
+      <div>
+        <label>文字顏色</label>
+        <input type="color" id="titleColor" value="#ffffff">
+      </div>
+    </div>
+    <div id="titlePreviewBox" style="text-align:center;padding:16px 0;margin-bottom:16px;border-radius:8px;background:rgba(0,0,0,0.3);">
+      <span id="titlePreviewText">預覽</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('titleModal')">取消</button>
+      <button class="btn-save" onclick="saveTitle()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 連結編輯彈窗 -->
+<div class="modal-overlay" id="linkModal">
+  <div class="modal">
+    <h2 id="linkModalTitle">新增連結</h2>
+    <label>名稱</label>
+    <input type="text" id="linkName" placeholder="例如：YouTube">
+    <label>連結網址</label>
+    <input type="url" id="linkUrl" placeholder="https://www.youtube.com">
+    <div class="file-pick">
+      <label>卡片圖片（從電腦選擇）</label>
+      <label class="pick-btn" for="linkFileInput">選擇檔案</label>
+      <input type="file" id="linkFileInput" accept="image/*">
+      <span class="file-name" id="linkFileName"></span>
+    </div>
+    <label>或輸入圖片網址</label>
+    <input type="url" id="linkImgUrl" placeholder="https://example.com/icon.png">
+    <img class="preview-img" id="linkPreview">
+
+    <label>形狀</label>
+    <div class="shape-options" id="shapeOptions">
+      <div class="shape-opt" data-shape="rectangle" title="長方形">
+        <svg viewBox="0 0 40 30"><rect x="2" y="2" width="36" height="26" rx="4" fill="none" stroke="#fff" stroke-width="2"/></svg>
+        <span>長方形</span>
+      </div>
+      <div class="shape-opt" data-shape="rounded" title="圓角">
+        <svg viewBox="0 0 40 30"><rect x="2" y="2" width="36" height="26" rx="10" fill="none" stroke="#fff" stroke-width="2"/></svg>
+        <span>圓角</span>
+      </div>
+      <div class="shape-opt" data-shape="circle" title="圓形">
+        <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="#fff" stroke-width="2"/></svg>
+        <span>圓形</span>
+      </div>
+      <div class="shape-opt" data-shape="flower" title="花朵">
+        <svg viewBox="0 0 40 40"><circle cx="20" cy="10" r="8" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="10" cy="22" r="8" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="30" cy="22" r="8" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="20" cy="18" r="5" fill="#fff" opacity="0.3"/></svg>
+        <span>花朵</span>
+      </div>
+      <div class="shape-opt" data-shape="star" title="星星">
+        <svg viewBox="0 0 40 40"><polygon points="20,2 25,15 39,15 28,24 32,38 20,30 8,38 12,24 1,15 15,15" fill="none" stroke="#fff" stroke-width="1.5"/></svg>
+        <span>星星</span>
+      </div>
+      <div class="shape-opt" data-shape="heart" title="愛心">
+        <svg viewBox="0 0 40 40"><path d="M20,35 C5,22 0,15 5,8 C10,1 18,5 20,10 C22,5 30,1 35,8 C40,15 35,22 20,35Z" fill="none" stroke="#fff" stroke-width="1.5"/></svg>
+        <span>愛心</span>
+      </div>
+      <div class="shape-opt" data-shape="hexagon" title="六角形">
+        <svg viewBox="0 0 40 40"><polygon points="10,3 30,3 39,20 30,37 10,37 1,20" fill="none" stroke="#fff" stroke-width="1.5"/></svg>
+        <span>六角形</span>
+      </div>
+      <div class="shape-opt" data-shape="diamond" title="菱形">
+        <svg viewBox="0 0 40 40"><polygon points="20,2 38,20 20,38 2,20" fill="none" stroke="#fff" stroke-width="1.5"/></svg>
+        <span>菱形</span>
+      </div>
+    </div>
+
+    <label>邊框樣式</label>
+    <div class="border-options" id="borderOptions">
+      <div class="border-opt" data-border="none">無</div>
+      <div class="border-opt" data-border="thin">細線</div>
+      <div class="border-opt" data-border="medium">中線</div>
+      <div class="border-opt" data-border="thick">粗線</div>
+      <div class="border-opt" data-border="dashed">虛線</div>
+      <div class="border-opt" data-border="double">雙線</div>
+      <div class="border-opt" data-border="gold">金框</div>
+      <div class="border-opt" data-border="rainbow">彩虹</div>
+      <div class="border-opt" data-border="glow">螢光</div>
+      <div class="border-opt" data-border="shadow">陰影</div>
+    </div>
+
+    <label>大小</label>
+    <div class="range-row">
+      <input type="range" id="linkSize" min="60" max="300" value="150">
+      <span class="range-val" id="linkSizeVal">150</span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('linkModal')">取消</button>
+      <button class="btn-delete" id="linkDeleteBtn" onclick="deleteLink()" style="display:none">刪除</button>
+      <button class="btn-save" onclick="saveLink()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 留言板面板 -->
+<div class="msgboard-panel" id="msgPanel">
+  <div class="msgboard-header">
+    <h2>心情留言板</h2>
+    <button class="msgboard-close" onclick="toggleMsgBoard()">✕</button>
+  </div>
+  <div class="members-bar" id="membersBar"></div>
+  <div class="msg-filter-bar">
+    <span class="filter-label">篩選：</span>
+    <select id="msgFilterFrom"><option value="">所有人</option></select>
+    <span class="filter-label">→</span>
+    <select id="msgFilterTo"><option value="">給所有人</option></select>
+    <button class="msg-pin-toggle" id="pinToggle" onclick="togglePinFilter()">📌 置頂</button>
+  </div>
+  <div class="msg-list" id="msgList"></div>
+  <div class="msg-compose">
+    <div class="compose-row">
+      <select id="composeFrom" title="我是誰"></select>
+      <span style="opacity:0.5">→</span>
+      <select id="composeTo" title="留言給誰"><option value="">大家</option></select>
+    </div>
+    <div class="compose-text-wrap">
+      <textarea class="compose-textarea" id="composeText" placeholder="寫下你的心情..."></textarea>
+      <div class="emoji-panel" id="emojiPanel">
+        <div class="emoji-tabs" id="emojiTabs"></div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+      </div>
+    </div>
+    <div class="compose-tools">
+      <button class="compose-tool-btn" onclick="toggleEmojiPanel()" title="表情符號">😊</button>
+      <label class="compose-tool-btn" for="composePhotoInput" title="附加照片">📷</label>
+      <input type="file" id="composePhotoInput" accept="image/*" style="display:none">
+      <div class="compose-photo-preview" id="composePhotoPreview">
+        <img id="composePhotoImg">
+        <button class="compose-photo-remove" onclick="removeComposePhoto()">✕</button>
+      </div>
+    </div>
+    <div class="compose-send-row">
+      <div class="mood-select" id="moodSelect">
+        <div class="mood-opt selected" data-mood="default" title="一般">💬</div>
+        <div class="mood-opt" data-mood="happy" title="開心">😄</div>
+        <div class="mood-opt" data-mood="love" title="喜愛">❤️</div>
+        <div class="mood-opt" data-mood="sad" title="難過">😢</div>
+        <div class="mood-opt" data-mood="angry" title="生氣">😡</div>
+        <div class="mood-opt" data-mood="excited" title="興奮">🎉</div>
+      </div>
+      <button class="send-btn" onclick="sendMessage()">送出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 照片燈箱 -->
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
+  <img id="lightboxImg">
+</div>
+
+<script>
+// ========== 資料管理 ==========
+const STORAGE_KEY = 'familyHomeDataV2';
+
+const defaultData = {
+  bgImage: '',
+  title: { text: '我的家庭首頁', font: "'Microsoft JhengHei', sans-serif", size: 40, color: '#ffffff' },
+  gridMode: false,
+  links: [
+    { name: 'Google', url: 'https://www.google.com', image: 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png', shape: 'rounded', border: 'none', size: 150, x: 80, y: 20 },
+    { name: 'YouTube', url: 'https://www.youtube.com', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/1024px-YouTube_full-color_icon_%282017%29.svg.png', shape: 'rounded', border: 'none', size: 150, x: 310, y: 20 },
+  ]
+};
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    const d = JSON.parse(raw);
+    if (!d.title) d.title = { ...defaultData.title };
+    d.links.forEach(l => {
+      if (!l.shape) l.shape = 'rounded';
+      if (!l.border) l.border = 'none';
+      if (!l.size) l.size = 150;
+      if (l.x == null) l.x = 80;
+      if (l.y == null) l.y = 20;
+    });
+    return d;
+  }
+  return JSON.parse(JSON.stringify(defaultData));
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+let appData = loadData();
+let editingIndex = -1;
+
+// ========== 標題 ==========
+function applyTitle() {
+  const h1 = document.getElementById('mainTitle');
+  const t = appData.title;
+  h1.textContent = t.text;
+  h1.style.fontFamily = t.font;
+  h1.style.fontSize = t.size + 'px';
+  h1.style.color = t.color;
+  document.title = t.text;
+}
+
+function openTitleModal() {
+  const t = appData.title;
+  document.getElementById('titleText').value = t.text;
+  document.getElementById('titleFont').value = t.font;
+  document.getElementById('titleSize').value = t.size;
+  document.getElementById('titleColor').value = t.color;
+  updateTitlePreview();
+  openModal('titleModal');
+}
+
+function updateTitlePreview() {
+  const el = document.getElementById('titlePreviewText');
+  const text = document.getElementById('titleText').value || '預覽';
+  const font = document.getElementById('titleFont').value;
+  const size = Math.min(parseInt(document.getElementById('titleSize').value) || 30, 48);
+  const color = document.getElementById('titleColor').value;
+  el.textContent = text;
+  el.style.fontFamily = font;
+  el.style.fontSize = size + 'px';
+  el.style.color = color;
+}
+
+['titleText','titleFont','titleSize','titleColor'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateTitlePreview);
+});
+
+function saveTitle() {
+  appData.title = {
+    text: document.getElementById('titleText').value.trim() || '我的家庭首頁',
+    font: document.getElementById('titleFont').value,
+    size: parseInt(document.getElementById('titleSize').value) || 40,
+    color: document.getElementById('titleColor').value
+  };
+  saveData(appData);
+  applyTitle();
+  closeModal('titleModal');
+}
+
+// ========== 背景 ==========
+function applyBg() {
+  document.body.style.backgroundImage = appData.bgImage ? `url("${appData.bgImage}")` : 'none';
+}
+
+function openBgModal() {
+  document.getElementById('bgUrlInput').value = appData.bgImage || '';
+  document.getElementById('bgFileName').textContent = '';
+  document.getElementById('bgFileInput').value = '';
+  const preview = document.getElementById('bgPreview');
+  if (appData.bgImage) { preview.src = appData.bgImage; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; }
+  preview.dataset.dataUrl = '';
+  openModal('bgModal');
+}
+
+document.getElementById('bgFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  document.getElementById('bgFileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('bgUrlInput').value = '';
+    const p = document.getElementById('bgPreview');
+    p.src = e.target.result; p.style.display = 'block'; p.dataset.dataUrl = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('bgUrlInput').addEventListener('input', function() {
+  const p = document.getElementById('bgPreview');
+  if (this.value) { p.src = this.value; p.style.display = 'block'; p.dataset.dataUrl = ''; }
+  else { p.style.display = 'none'; }
+});
+
+function saveBg() {
+  const p = document.getElementById('bgPreview');
+  const url = document.getElementById('bgUrlInput').value.trim();
+  appData.bgImage = p.dataset.dataUrl || url || '';
+  saveData(appData); applyBg(); closeModal('bgModal');
+}
+
+function resetBg() {
+  appData.bgImage = ''; saveData(appData); applyBg(); closeModal('bgModal');
+}
+
+// ========== 拖曳 ==========
+let dragState = null;
+let justDragged = false;
+
+function onDragStart(e, index) {
+  if (e.target.closest('.card-edit-btn')) return;
+  if (appData.gridMode) return;
+  e.preventDefault();
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  justDragged = false;
+  dragState = {
+    index,
+    card,
+    offsetX: clientX - rect.left,
+    offsetY: clientY - rect.top,
+    startX: clientX,
+    startY: clientY,
+    moved: false
+  };
+  card.classList.add('dragging');
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+  e.preventDefault();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+  if (Math.abs(clientX - dragState.startX) > 4 || Math.abs(clientY - dragState.startY) > 4) {
+    dragState.moved = true;
+  }
+
+  const container = document.getElementById('linksContainer');
+  const cRect = container.getBoundingClientRect();
+  let x = clientX - cRect.left - dragState.offsetX;
+  let y = clientY - cRect.top - dragState.offsetY;
+  x = Math.max(0, Math.min(x, cRect.width - 60));
+  y = Math.max(0, y);
+  dragState.card.style.left = x + 'px';
+  dragState.card.style.top = y + 'px';
+}
+
+function onDragEnd() {
+  if (!dragState) return;
+  dragState.card.classList.remove('dragging');
+  if (dragState.moved) {
+    justDragged = true;
+    appData.links[dragState.index].x = parseInt(dragState.card.style.left);
+    appData.links[dragState.index].y = parseInt(dragState.card.style.top);
+    saveData(appData);
+  }
+  dragState = null;
+}
+
+document.addEventListener('mousemove', onDragMove);
+document.addEventListener('mouseup', onDragEnd);
+document.addEventListener('touchmove', onDragMove, { passive: false });
+document.addEventListener('touchend', onDragEnd);
+
+// ========== 自動排列 ==========
+function autoArrange() {
+  appData.gridMode = !appData.gridMode;
+  saveData(appData);
+  renderLinks();
+}
+
+// ========== 連結卡片渲染 ==========
+function isMobile() { return window.innerWidth <= 480; }
+
+function renderLinks() {
+  const container = document.getElementById('linksContainer');
+  container.innerHTML = '';
+  const mobile = isMobile();
+  container.classList.toggle('grid-mode', !!appData.gridMode || mobile);
+
+  appData.links.forEach((link, i) => {
+    const card = document.createElement('div');
+    let s = link.size || 150;
+    // 手機上限制最大尺寸
+    if (mobile) s = Math.min(s, Math.floor((window.innerWidth - 60) / 2));
+    const isCircular = ['circle','flower','star','heart','hexagon','diamond'].includes(link.shape);
+    const w = isCircular ? s : Math.round(s * 4 / 3);
+    const h = s;
+
+    card.className = `link-card shape-${link.shape || 'rounded'} border-${link.border || 'none'}`;
+    card.style.width = w + 'px';
+    card.style.height = (h + 24) + 'px'; // extra for label
+
+    if (!appData.gridMode && !mobile) {
+      card.style.left = (link.x || 0) + 'px';
+      card.style.top = (link.y || 0) + 'px';
+    }
+
+    // Image wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'card-img-wrap';
+    wrap.style.width = w + 'px';
+    wrap.style.height = h + 'px';
+
+    const img = document.createElement('img');
+    img.src = link.image || '';
+    img.alt = link.name;
+    img.onerror = function() { this.style.display = 'none'; };
+    wrap.appendChild(img);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'card-edit-btn';
+    editBtn.innerHTML = '✎';
+    editBtn.title = '編輯';
+    editBtn.onclick = (e) => { e.stopPropagation(); openLinkModal(i); };
+    wrap.appendChild(editBtn);
+
+    card.appendChild(wrap);
+
+    const label = document.createElement('div');
+    label.className = 'card-label';
+    label.textContent = link.name;
+    label.style.width = w + 'px';
+    card.appendChild(label);
+
+    // Click to open link (only if not dragged)
+    card.addEventListener('mousedown', (e) => onDragStart(e, i));
+    card.addEventListener('touchstart', (e) => onDragStart(e, i), { passive: false });
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.card-edit-btn')) return;
+      if (justDragged) { justDragged = false; return; }
+      window.open(link.url, '_blank');
+    });
+
+    container.appendChild(card);
+  });
+
+  // 新增按鈕
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-card';
+  if (!appData.gridMode && !mobile) {
+    addBtn.style.position = 'absolute';
+    // Place add button after last card or at start
+    const lastLink = appData.links[appData.links.length - 1];
+    if (lastLink) {
+      const isC = ['circle','flower','star','heart','hexagon','diamond'].includes(lastLink.shape);
+      const lw = isC ? lastLink.size : Math.round(lastLink.size * 4 / 3);
+      addBtn.style.left = (lastLink.x + lw + 30) + 'px';
+      addBtn.style.top = (lastLink.y) + 'px';
+    } else {
+      addBtn.style.left = '80px';
+      addBtn.style.top = '20px';
+    }
+  }
+  addBtn.innerHTML = '+';
+  addBtn.title = '新增連結';
+  addBtn.onclick = () => openLinkModal(-1);
+  container.appendChild(addBtn);
+}
+
+// ========== 連結編輯彈窗 ==========
+let selectedShape = 'rounded';
+let selectedBorder = 'none';
+
+// Shape selection
+document.querySelectorAll('.shape-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.shape-opt').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedShape = el.dataset.shape;
+  });
+});
+
+// Border selection
+document.querySelectorAll('.border-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.border-opt').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedBorder = el.dataset.border;
+  });
+});
+
+// Size slider
+document.getElementById('linkSize').addEventListener('input', function() {
+  document.getElementById('linkSizeVal').textContent = this.value;
+});
+
+function openLinkModal(index) {
+  editingIndex = index;
+  const isNew = index === -1;
+  document.getElementById('linkModalTitle').textContent = isNew ? '新增連結' : '編輯連結';
+  document.getElementById('linkDeleteBtn').style.display = isNew ? 'none' : 'inline-block';
+
+  const link = isNew ? { name: '', url: '', image: '', shape: 'rounded', border: 'none', size: 150 } : appData.links[index];
+  document.getElementById('linkName').value = link.name;
+  document.getElementById('linkUrl').value = link.url;
+  document.getElementById('linkImgUrl').value = '';
+  document.getElementById('linkFileName').textContent = '';
+  document.getElementById('linkFileInput').value = '';
+
+  const preview = document.getElementById('linkPreview');
+  if (link.image) { preview.src = link.image; preview.style.display = 'block'; preview.dataset.dataUrl = link.image; }
+  else { preview.style.display = 'none'; preview.dataset.dataUrl = ''; }
+
+  // Shape
+  selectedShape = link.shape || 'rounded';
+  document.querySelectorAll('.shape-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.shape === selectedShape);
+  });
+
+  // Border
+  selectedBorder = link.border || 'none';
+  document.querySelectorAll('.border-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.border === selectedBorder);
+  });
+
+  // Size
+  const sz = link.size || 150;
+  document.getElementById('linkSize').value = sz;
+  document.getElementById('linkSizeVal').textContent = sz;
+
+  openModal('linkModal');
+}
+
+document.getElementById('linkFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  document.getElementById('linkFileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('linkImgUrl').value = '';
+    const p = document.getElementById('linkPreview');
+    p.src = e.target.result; p.style.display = 'block'; p.dataset.dataUrl = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('linkImgUrl').addEventListener('input', function() {
+  const p = document.getElementById('linkPreview');
+  if (this.value) { p.src = this.value; p.style.display = 'block'; p.dataset.dataUrl = ''; }
+  else { p.style.display = 'none'; }
+});
+
+function saveLink() {
+  const name = document.getElementById('linkName').value.trim();
+  const url = document.getElementById('linkUrl').value.trim();
+  const imgUrl = document.getElementById('linkImgUrl').value.trim();
+  const preview = document.getElementById('linkPreview');
+  const dataUrl = preview.dataset.dataUrl;
+  const image = dataUrl || imgUrl || '';
+  const size = parseInt(document.getElementById('linkSize').value) || 150;
+
+  if (!name || !url) { alert('請填寫名稱和連結網址'); return; }
+
+  if (editingIndex === -1) {
+    // Find good position for new card
+    let newX = 80, newY = 20;
+    if (appData.links.length > 0) {
+      const last = appData.links[appData.links.length - 1];
+      const isC = ['circle','flower','star','heart','hexagon','diamond'].includes(last.shape);
+      const lw = isC ? last.size : Math.round(last.size * 4 / 3);
+      newX = last.x + lw + 30;
+      newY = last.y;
+      if (newX > 900) { newX = 80; newY = last.y + last.size + 60; }
+    }
+    appData.links.push({ name, url, image, shape: selectedShape, border: selectedBorder, size, x: newX, y: newY });
+  } else {
+    const old = appData.links[editingIndex];
+    appData.links[editingIndex] = { name, url, image: image || old.image, shape: selectedShape, border: selectedBorder, size, x: old.x, y: old.y };
+  }
+  saveData(appData);
+  renderLinks();
+  closeModal('linkModal');
+}
+
+function deleteLink() {
+  if (editingIndex < 0) return;
+  if (!confirm('確定要刪除此連結嗎？')) return;
+  appData.links.splice(editingIndex, 1);
+  saveData(appData);
+  renderLinks();
+  closeModal('linkModal');
+}
+
+// ========== 留言板 ==========
+const MSG_KEY = 'familyMsgBoard';
+
+function loadMessages() {
+  const raw = localStorage.getItem(MSG_KEY);
+  if (raw) return JSON.parse(raw);
+  return { members: ['Dad','Mom','Chel','Layla','Chicken','Sheepy','Yolky'], messages: [] };
+}
+function saveMessages(d) { localStorage.setItem(MSG_KEY, JSON.stringify(d)); }
+
+let msgData = loadMessages();
+let msgFilterPinned = false;
+let selectedMood = 'default';
+let composePhotoData = '';
+
+function toggleMsgBoard() {
+  document.getElementById('msgPanel').classList.toggle('open');
+  if (document.getElementById('msgPanel').classList.contains('open')) {
+    renderMembers();
+    populateMemberSelects();
+    renderMessages();
+  }
+}
+
+// --- 家庭成員 ---
+function renderMembers() {
+  const bar = document.getElementById('membersBar');
+  bar.innerHTML = '';
+  msgData.members.forEach((m, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'member-chip';
+    chip.innerHTML = `${m}<span class="remove-member" onclick="removeMember(${i})" title="移除">✕</span>`;
+    bar.appendChild(chip);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-member-btn';
+  addBtn.textContent = '+ 新增成員';
+  addBtn.onclick = addMember;
+  bar.appendChild(addBtn);
+}
+
+function addMember() {
+  const name = prompt('輸入新成員名稱：');
+  if (!name || !name.trim()) return;
+  msgData.members.push(name.trim());
+  saveMessages(msgData);
+  renderMembers();
+  populateMemberSelects();
+}
+
+function removeMember(i) {
+  if (!confirm(`確定移除「${msgData.members[i]}」嗎？`)) return;
+  msgData.members.splice(i, 1);
+  saveMessages(msgData);
+  renderMembers();
+  populateMemberSelects();
+}
+
+function populateMemberSelects() {
+  ['composeFrom','composeTo','msgFilterFrom','msgFilterTo'].forEach(id => {
+    const sel = document.getElementById(id);
+    const val = sel.value;
+    const isTo = id === 'composeTo' || id === 'msgFilterTo';
+    const isFilter = id.startsWith('msgFilter');
+    sel.innerHTML = '';
+    if (isFilter) {
+      sel.appendChild(new Option(isTo ? '給所有人' : '所有人', ''));
+    }
+    if (isTo && !isFilter) {
+      sel.appendChild(new Option('大家', ''));
+    }
+    msgData.members.forEach(m => sel.appendChild(new Option(m, m)));
+    sel.value = val || '';
+  });
+}
+
+// --- 篩選 ---
+document.getElementById('msgFilterFrom').addEventListener('change', renderMessages);
+document.getElementById('msgFilterTo').addEventListener('change', renderMessages);
+
+function togglePinFilter() {
+  msgFilterPinned = !msgFilterPinned;
+  document.getElementById('pinToggle').classList.toggle('active', msgFilterPinned);
+  renderMessages();
+}
+
+// --- Emoji 面板 ---
+const emojiCategories = {
+  '😊 常用': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','😐','😑','😶','😏','😒','🙄','😬','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','🤬'],
+  '❤️ 愛心': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💑','💏','👨‍❤️‍👨','👩‍❤️‍👩','💋','🫶','🤲'],
+  '👋 手勢': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🙏','💪','🫶'],
+  '🐱 動物': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🪲','🐢','🐍','🦎','🐙','🦑','🦐','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊'],
+  '🍎 食物': ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🧄','🧅','🥔','🍠','🫘','🥜','🍞','🥐','🥖','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🧀','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🥗','🍱','🍣','🍜','🍝'],
+  '🎉 活動': ['🎉','🎊','🎈','🎁','🎄','🎃','🎗️','🎟️','🎫','🎖️','🏆','🏅','🥇','🥈','🥉','⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🏒','🥊','🎯','⛳','🎣','🎽','🎿','🛷','🥌','🎮','🕹️','🎲','♟️','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸'],
+  '🌈 自然': ['☀️','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','❄️','☃️','⛄','🌬️','💨','🌈','🌊','💧','💦','☔','🌸','💐','🌷','🌹','🌺','🌻','🌼','🍀','🍁','🍂','🍃','🌿','☘️','🪴','🌵','🌴','🌳','🌲','🏔️','⛰️','🏕️','🌅','🌄','🌠','🎇','🎆','🌃','🌉','🌌']
+};
+
+function initEmojiPanel() {
+  const tabs = document.getElementById('emojiTabs');
+  const grid = document.getElementById('emojiGrid');
+  const cats = Object.keys(emojiCategories);
+  tabs.innerHTML = '';
+  cats.forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = cat.split(' ')[0];
+    btn.title = cat;
+    btn.onclick = () => {
+      tabs.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      renderEmojiGrid(cat);
+    };
+    tabs.appendChild(btn);
+  });
+  renderEmojiGrid(cats[0]);
+}
+
+function renderEmojiGrid(cat) {
+  const grid = document.getElementById('emojiGrid');
+  grid.innerHTML = '';
+  emojiCategories[cat].forEach(em => {
+    const cell = document.createElement('span');
+    cell.className = 'emoji-cell';
+    cell.textContent = em;
+    cell.onclick = () => {
+      const ta = document.getElementById('composeText');
+      const pos = ta.selectionStart;
+      ta.value = ta.value.slice(0, pos) + em + ta.value.slice(pos);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = pos + em.length;
+    };
+    grid.appendChild(cell);
+  });
+}
+
+function toggleEmojiPanel() {
+  document.getElementById('emojiPanel').classList.toggle('open');
+}
+
+// 點選面板外關閉
+document.addEventListener('click', e => {
+  const panel = document.getElementById('emojiPanel');
+  if (!panel.classList.contains('open')) return;
+  if (e.target.closest('.emoji-panel') || e.target.closest('.compose-tool-btn')) return;
+  panel.classList.remove('open');
+});
+
+initEmojiPanel();
+
+// --- 照片 ---
+document.getElementById('composePhotoInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    composePhotoData = e.target.result;
+    document.getElementById('composePhotoImg').src = composePhotoData;
+    document.getElementById('composePhotoPreview').style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+});
+
+function removeComposePhoto() {
+  composePhotoData = '';
+  document.getElementById('composePhotoInput').value = '';
+  document.getElementById('composePhotoPreview').style.display = 'none';
+}
+
+// --- 心情選擇 ---
+document.querySelectorAll('.mood-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.mood-opt').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMood = el.dataset.mood;
+  });
+});
+
+// --- 送出留言 ---
+function sendMessage() {
+  const from = document.getElementById('composeFrom').value;
+  const to = document.getElementById('composeTo').value;
+  const text = document.getElementById('composeText').value.trim();
+  if (!from) { alert('請選擇你是誰'); return; }
+  if (!text && !composePhotoData) { alert('請輸入留言內容或附加照片'); return; }
+
+  const msg = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    from,
+    to: to || '',
+    text,
+    photo: composePhotoData,
+    mood: selectedMood,
+    date: new Date().toISOString(),
+    pinned: false,
+    reactions: {},
+    replies: []
+  };
+  msgData.messages.unshift(msg);
+  saveMessages(msgData);
+
+  // Reset compose
+  document.getElementById('composeText').value = '';
+  removeComposePhoto();
+  selectedMood = 'default';
+  document.querySelectorAll('.mood-opt').forEach(e => e.classList.toggle('selected', e.dataset.mood === 'default'));
+
+  renderMessages();
+}
+
+// --- 渲染留言列表 ---
+function renderMessages() {
+  const list = document.getElementById('msgList');
+  list.innerHTML = '';
+
+  const filterFrom = document.getElementById('msgFilterFrom').value;
+  const filterTo = document.getElementById('msgFilterTo').value;
+
+  let msgs = msgData.messages.filter(m => {
+    if (msgFilterPinned && !m.pinned) return false;
+    if (filterFrom && m.from !== filterFrom) return false;
+    if (filterTo && m.to !== filterTo) return false;
+    return true;
+  });
+
+  // Pinned first
+  msgs.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return 0;
+  });
+
+  if (msgs.length === 0) {
+    list.innerHTML = '<div class="msg-empty">還沒有留言，快來寫下第一則吧！</div>';
+    return;
+  }
+
+  msgs.forEach(msg => {
+    const el = document.createElement('div');
+    el.className = `msg-item msg-mood-${msg.mood || 'default'}${msg.pinned ? ' pinned' : ''}`;
+
+    const dateStr = formatMsgDate(msg.date);
+
+    let html = `<div class="msg-top-row">
+      <span class="msg-author">${esc(msg.from)}</span>`;
+    if (msg.to) {
+      html += `<span class="msg-arrow">→</span><span class="msg-to">${esc(msg.to)}</span>`;
+    } else {
+      html += `<span class="msg-arrow">→</span><span class="msg-to">大家</span>`;
+    }
+    html += `<span class="msg-date">${dateStr}</span></div>`;
+
+    if (msg.text) {
+      html += `<div class="msg-body">${esc(msg.text).replace(/\n/g, '<br>')}</div>`;
+    }
+    if (msg.photo) {
+      html += `<img class="msg-photo" src="${msg.photo}" onclick="openLightbox(this.src)">`;
+    }
+
+    // Reactions
+    const reactionEmojis = ['👍','❤️','😂','😮','😢','🎉'];
+    html += `<div class="msg-bottom-row">`;
+    reactionEmojis.forEach(em => {
+      const count = (msg.reactions && msg.reactions[em]) || 0;
+      html += `<button class="msg-react-btn${count > 0 ? ' reacted' : ''}" onclick="toggleReaction('${msg.id}','${em}')">${em}${count > 0 ? ' ' + count : ''}</button>`;
+    });
+    html += `<div class="msg-actions">
+      <button class="msg-act-btn" onclick="togglePin('${msg.id}')" title="${msg.pinned ? '取消置頂' : '置頂'}">${msg.pinned ? '📌' : '📌'}</button>
+      <button class="msg-act-btn" onclick="deleteMessage('${msg.id}')" title="刪除">🗑️</button>
+    </div></div>`;
+
+    // Replies
+    if (msg.replies && msg.replies.length > 0) {
+      html += `<div class="msg-replies">`;
+      msg.replies.forEach(r => {
+        html += `<div class="msg-reply">
+          <div class="reply-top"><span class="reply-author">${esc(r.from)}</span><span class="reply-date">${formatMsgDate(r.date)}</span></div>
+          <div class="reply-body">${esc(r.text).replace(/\n/g, '<br>')}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Reply input
+    html += `<div class="reply-input-row">
+      <input type="text" placeholder="回覆..." onkeydown="if(event.key==='Enter')replyToMsg('${msg.id}',this)">
+      <button onclick="replyToMsg('${msg.id}',this.previousElementSibling)">回覆</button>
+    </div>`;
+
+    el.innerHTML = html;
+    list.appendChild(el);
+  });
+}
+
+function formatMsgDate(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return '剛剛';
+  if (diffMin < 60) return diffMin + ' 分鐘前';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr + ' 小時前';
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return diffDay + ' 天前';
+  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// --- 互動功能 ---
+function toggleReaction(msgId, emoji) {
+  const msg = msgData.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  if (!msg.reactions) msg.reactions = {};
+  msg.reactions[emoji] = (msg.reactions[emoji] || 0) + 1;
+  saveMessages(msgData);
+  renderMessages();
+}
+
+function togglePin(msgId) {
+  const msg = msgData.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  msg.pinned = !msg.pinned;
+  saveMessages(msgData);
+  renderMessages();
+}
+
+function deleteMessage(msgId) {
+  if (!confirm('確定要刪除此留言嗎？')) return;
+  msgData.messages = msgData.messages.filter(m => m.id !== msgId);
+  saveMessages(msgData);
+  renderMessages();
+}
+
+function replyToMsg(msgId, input) {
+  const text = input.value.trim();
+  if (!text) return;
+  const from = document.getElementById('composeFrom').value;
+  if (!from) { alert('請先在下方選擇你是誰'); return; }
+  const msg = msgData.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  if (!msg.replies) msg.replies = [];
+  msg.replies.push({ from, text, date: new Date().toISOString() });
+  saveMessages(msgData);
+  input.value = '';
+  renderMessages();
+}
+
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ========== 彈窗控制 ==========
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ========== 時鐘 ==========
+function updateClock() {
+  const now = new Date();
+  const opts = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+  document.getElementById('clock').textContent = now.toLocaleString('zh-TW', opts);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ========== 初始化 ==========
+applyBg();
+applyTitle();
+renderLinks();
+populateMemberSelects();
+
+// 螢幕旋轉或調整大小時重新渲染
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderLinks, 200);
+});
+</script>
+</body>
+</html>
