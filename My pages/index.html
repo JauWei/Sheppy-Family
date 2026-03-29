@@ -7,6 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; }
@@ -77,6 +80,54 @@
 
     /* Glassmorphism header */
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.15); }
+
+    /* Drag & Drop */
+    .sortable-ghost { opacity: 0.4; }
+    .sortable-chosen { box-shadow: 0 4px 12px rgba(99,102,241,.3); }
+    .drag-handle { cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+
+    /* QR preview */
+    .qr-preview { max-width: 200px; max-height: 200px; object-fit: contain; border-radius: .5rem; border: 1px solid #e5e7eb; }
+
+    /* Expense category colors */
+    .exp-transport { color: #64748b; } .exp-food { color: #f97316; }
+    .exp-accommodation { color: #8b5cf6; } .exp-shopping { color: #ec4899; }
+    .exp-entertainment { color: #22c55e; } .exp-other { color: #14b8a6; }
+
+    /* Checklist */
+    .check-done { text-decoration: line-through; color: #9ca3af; }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      .desktop-sidebar { display: none; }
+      .desktop-sidebar.mobile-open { display: flex; position: fixed; inset: 0; z-index: 45; width: 100%; max-width: 280px; box-shadow: 0 0 40px rgba(0,0,0,.3); }
+      .mobile-sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 44; }
+      .mobile-sidebar-overlay.active { display: block; }
+      .mobile-bottom-bar { display: flex !important; }
+      .trip-body-main { padding-bottom: 60px; }
+      .modal { max-width: 95vw; padding: 1rem; }
+      #map-iframe { height: 220px; }
+      .hide-mobile { display: none !important; }
+    }
+    @media (min-width: 769px) {
+      .mobile-bottom-bar { display: none !important; }
+      .mobile-sidebar-overlay { display: none !important; }
+      .show-mobile-only { display: none !important; }
+    }
+
+    /* Export container */
+    #export-content { background: white; }
+
+    /* Drawer base */
+    .drawer-right {
+      position: fixed; inset-y: 0; right: 0; width: 100%; max-width: 28rem;
+      background: white; box-shadow: -4px 0 24px rgba(0,0,0,.15);
+      z-index: 40; display: flex; flex-direction: column;
+    }
+    @media (max-width: 768px) {
+      .drawer-right { max-width: 100%; }
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -87,8 +138,12 @@
     <h2 class="text-xl font-bold mb-2 flex items-center gap-2">
       <i class="fas fa-database text-indigo-500"></i> 資料庫初始化設定
     </h2>
-    <p class="text-sm text-gray-600 mb-4">請在 <a href="https://supabase.com/dashboard/project/fdlboucygxjcwbzsqjah/sql" target="_blank" class="text-indigo-500 underline">Supabase SQL Editor</a> 執行以下指令：</p>
+    <p class="text-sm text-gray-600 mb-4">請在 Supabase SQL Editor 執行以下指令：</p>
     <pre id="setup-sql" class="bg-gray-900 text-green-400 text-xs p-4 rounded-lg overflow-auto max-h-96 select-all"></pre>
+    <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+      <i class="fas fa-exclamation-triangle mr-1"></i>
+      <b>Storage 設定：</b>請至 Supabase Dashboard → Storage → 建立名為 <code>qr-codes</code> 的公開 Bucket，或在 SQL 中一併執行上方 Storage 相關語句。
+    </div>
     <div class="flex gap-2 mt-4">
       <button onclick="copySQL()" class="flex-1 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-medium">
         <i class="fas fa-copy mr-1"></i> 複製 SQL
@@ -165,8 +220,12 @@
       </div>
     </div>
     <div class="flex gap-2 mt-4">
-      <button onclick="closeDayModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-sm font-medium">取消</button>
-      <button onclick="saveDayModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">儲存</button>
+      <button id="day-delete-btn" onclick="deleteCurrentDay()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hidden">
+        <i class="fas fa-trash mr-1"></i> 刪除
+      </button>
+      <div class="flex-1"></div>
+      <button onclick="closeDayModal()" class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-medium">取消</button>
+      <button onclick="saveDayModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">儲存</button>
     </div>
   </div>
 </div>
@@ -212,6 +271,17 @@
         <input id="event-maps-url" type="url" placeholder="https://maps.google.com/..." class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div>
+        <label class="text-xs text-gray-500">預估花費</label>
+        <div class="flex gap-2">
+          <select id="event-currency" class="w-24 border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="TWD">TWD</option><option value="JPY">JPY</option><option value="USD">USD</option>
+            <option value="EUR">EUR</option><option value="KRW">KRW</option><option value="CNY">CNY</option>
+            <option value="THB">THB</option><option value="GBP">GBP</option><option value="HKD">HKD</option><option value="SGD">SGD</option>
+          </select>
+          <input id="event-cost" type="number" min="0" step="0.01" placeholder="0" class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        </div>
+      </div>
+      <div>
         <label class="text-xs text-gray-500">備註</label>
         <textarea id="event-notes" rows="2" placeholder="行程說明、注意事項..." class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"></textarea>
       </div>
@@ -252,6 +322,24 @@
         <input id="cred-url" type="url" placeholder="https://..." class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div>
+        <label class="text-xs text-gray-500">QR Code 圖片</label>
+        <div id="qr-upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-indigo-400 transition cursor-pointer"
+             onclick="document.getElementById('qr-file-input').click()">
+          <input id="qr-file-input" type="file" accept="image/*" class="hidden" onchange="handleQRFileSelect(event)">
+          <div id="qr-upload-placeholder">
+            <i class="fas fa-qrcode text-2xl text-gray-300 mb-2"></i>
+            <p class="text-xs text-gray-400">點擊或拖拽上傳 QR Code 圖片</p>
+          </div>
+          <div id="qr-preview-container" class="hidden">
+            <img id="qr-preview-img" class="qr-preview mx-auto mb-2">
+            <button onclick="event.stopPropagation(); removeQRImage()" class="text-xs text-red-500 hover:text-red-700">
+              <i class="fas fa-times mr-1"></i>移除圖片
+            </button>
+          </div>
+        </div>
+        <input type="hidden" id="cred-qr-url">
+      </div>
+      <div>
         <label class="text-xs text-gray-500">關聯行程（選填）</label>
         <select id="cred-event" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
           <option value="">-- 不關聯特定行程 --</option>
@@ -264,13 +352,126 @@
     </div>
     <div class="flex gap-2 mt-4">
       <button onclick="closeCredModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-sm font-medium">取消</button>
-      <button onclick="saveCredModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">儲存</button>
+      <button id="cred-save-btn" onclick="saveCredModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">儲存</button>
     </div>
   </div>
 </div>
 
+<!-- ===== EXPENSE MODAL ===== -->
+<div id="expense-modal" class="overlay hidden">
+  <div class="modal max-w-sm">
+    <h2 class="text-lg font-bold mb-4" id="expense-modal-title">新增花費</h2>
+    <input type="hidden" id="expense-modal-id">
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-gray-500">花費項目*</label>
+        <input id="expense-title" type="text" placeholder="例：午餐拉麵" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      </div>
+      <div class="flex gap-2">
+        <div class="w-24">
+          <label class="text-xs text-gray-500">幣別</label>
+          <select id="expense-currency" class="w-full border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="TWD">TWD</option><option value="JPY">JPY</option><option value="USD">USD</option>
+            <option value="EUR">EUR</option><option value="KRW">KRW</option><option value="CNY">CNY</option>
+            <option value="THB">THB</option><option value="GBP">GBP</option><option value="HKD">HKD</option><option value="SGD">SGD</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500">金額*</label>
+          <input id="expense-amount" type="number" min="0" step="0.01" placeholder="0" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">分類</label>
+        <select id="expense-category" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="transport">🚗 交通</option>
+          <option value="food">🍽️ 餐飲</option>
+          <option value="accommodation">🏨 住宿</option>
+          <option value="shopping">🛍️ 購物</option>
+          <option value="entertainment">🎯 娛樂</option>
+          <option value="other">📝 其他</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">所屬天數</label>
+        <select id="expense-day" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="">-- 不指定 --</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">備註</label>
+        <textarea id="expense-notes" rows="2" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="closeExpenseModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-sm font-medium">取消</button>
+      <button onclick="saveExpenseModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CHECKLIST ITEM MODAL ===== -->
+<div id="checklist-modal" class="overlay hidden">
+  <div class="modal max-w-sm">
+    <h2 class="text-lg font-bold mb-4">新增清單項目</h2>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-gray-500">項目名稱*</label>
+        <input id="checklist-item-title" type="text" placeholder="例：護照" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">分類</label>
+        <select id="checklist-item-category" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="documents">📄 證件文件</option>
+          <option value="clothing">👕 衣物</option>
+          <option value="toiletries">🧴 盥洗用品</option>
+          <option value="electronics">🔌 電子產品</option>
+          <option value="medicine">💊 藥品</option>
+          <option value="other">📦 其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="closeChecklistModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-sm font-medium">取消</button>
+      <button onclick="saveChecklistItem()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EXPORT MODAL ===== -->
+<div id="export-modal" class="overlay hidden">
+  <div class="modal max-w-sm text-center">
+    <h2 class="text-lg font-bold mb-4"><i class="fas fa-download text-indigo-500 mr-2"></i>匯出行程</h2>
+    <div class="space-y-3">
+      <button onclick="exportPDF()" class="w-full flex items-center gap-3 bg-red-50 hover:bg-red-100 text-red-700 px-4 py-3 rounded-xl transition">
+        <i class="fas fa-file-pdf text-xl"></i>
+        <div class="text-left"><div class="font-semibold text-sm">匯出 PDF</div><div class="text-xs opacity-75">完整行程表</div></div>
+      </button>
+      <button onclick="exportImage()" class="w-full flex items-center gap-3 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-xl transition">
+        <i class="fas fa-image text-xl"></i>
+        <div class="text-left"><div class="font-semibold text-sm">匯出圖片</div><div class="text-xs opacity-75">PNG 長圖</div></div>
+      </button>
+      <button onclick="window.print()" class="w-full flex items-center gap-3 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-3 rounded-xl transition">
+        <i class="fas fa-print text-xl"></i>
+        <div class="text-left"><div class="font-semibold text-sm">列印</div><div class="text-xs opacity-75">使用瀏覽器列印</div></div>
+      </button>
+    </div>
+    <button onclick="closeExportModal()" class="mt-4 text-sm text-gray-400 hover:text-gray-600">關閉</button>
+  </div>
+</div>
+
+<!-- ===== QR VIEWER MODAL ===== -->
+<div id="qr-viewer-modal" class="overlay hidden" onclick="this.classList.add('hidden')">
+  <div class="modal max-w-sm text-center" onclick="event.stopPropagation()">
+    <img id="qr-viewer-img" class="max-w-full rounded-lg mx-auto mb-3">
+    <p id="qr-viewer-title" class="font-semibold text-sm mb-1"></p>
+    <p id="qr-viewer-number" class="text-xs text-gray-500 font-mono"></p>
+    <button onclick="document.getElementById('qr-viewer-modal').classList.add('hidden')" class="mt-3 text-sm text-gray-400 hover:text-gray-600">關閉</button>
+  </div>
+</div>
+
 <!-- ===== MAP PANEL ===== -->
-<div id="map-panel" class="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl z-40 hidden slide-right flex flex-col">
+<div id="map-panel" class="drawer-right hidden slide-right">
   <div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
     <div>
       <h3 class="font-semibold" id="map-panel-title">地圖</h3>
@@ -296,7 +497,7 @@
 </div>
 
 <!-- ===== CREDENTIALS DRAWER ===== -->
-<div id="cred-drawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-40 hidden slide-right flex flex-col">
+<div id="cred-drawer" class="drawer-right hidden slide-right">
   <div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
     <h3 class="font-semibold">行程憑證</h3>
     <div class="flex gap-2">
@@ -311,9 +512,45 @@
   <div id="cred-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
 </div>
 
+<!-- ===== EXPENSE DRAWER ===== -->
+<div id="expense-drawer" class="drawer-right hidden slide-right">
+  <div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+    <h3 class="font-semibold">💰 預算與花費</h3>
+    <div class="flex gap-2">
+      <button onclick="openExpenseModal()" class="flex items-center gap-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+        <i class="fas fa-plus"></i> 新增
+      </button>
+      <button onclick="closeExpenseDrawer()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200">
+        <i class="fas fa-times text-gray-500"></i>
+      </button>
+    </div>
+  </div>
+  <div id="expense-summary" class="px-4 py-3 border-b bg-gradient-to-r from-green-50 to-teal-50"></div>
+  <div id="expense-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+</div>
+
+<!-- ===== CHECKLIST DRAWER ===== -->
+<div id="checklist-drawer" class="drawer-right hidden slide-right">
+  <div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+    <h3 class="font-semibold">✅ 打包清單</h3>
+    <div class="flex gap-2">
+      <button onclick="openChecklistModal()" class="flex items-center gap-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+        <i class="fas fa-plus"></i> 新增
+      </button>
+      <button onclick="closeChecklistDrawer()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200">
+        <i class="fas fa-times text-gray-500"></i>
+      </button>
+    </div>
+  </div>
+  <div id="checklist-progress" class="px-4 py-3 border-b"></div>
+  <div id="checklist-list" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+</div>
+
+<!-- ===== MOBILE SIDEBAR OVERLAY ===== -->
+<div id="mobile-sidebar-overlay" class="mobile-sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
 <!-- ===== HOME VIEW ===== -->
 <div id="home-view">
-  <!-- Header -->
   <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 text-white">
     <div class="max-w-5xl mx-auto px-4 py-8">
       <div class="flex items-center justify-between mb-6">
@@ -339,8 +576,6 @@
       </button>
     </div>
   </div>
-
-  <!-- Trips Grid -->
   <div class="max-w-5xl mx-auto px-4 py-6">
     <div id="trips-loading" class="text-center py-12 text-gray-400">
       <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
@@ -358,35 +593,47 @@
 <!-- ===== TRIP VIEW ===== -->
 <div id="trip-view" class="hidden h-screen flex flex-col">
   <!-- Trip Header -->
-  <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 text-white px-4 py-3 flex items-center gap-3 shrink-0">
+  <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 text-white px-4 py-3 flex items-center gap-2 shrink-0 flex-wrap">
     <button onclick="goHome()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition">
       <i class="fas fa-arrow-left"></i>
     </button>
+    <!-- Mobile sidebar toggle -->
+    <button onclick="openMobileSidebar()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition show-mobile-only">
+      <i class="fas fa-calendar-alt"></i>
+    </button>
     <div class="flex-1 min-w-0">
-      <h2 class="font-bold truncate" id="trip-title-display"></h2>
+      <h2 class="font-bold truncate text-sm sm:text-base" id="trip-title-display"></h2>
       <p class="text-xs text-indigo-200 truncate" id="trip-subtitle-display"></p>
     </div>
-    <!-- Online users -->
     <div id="online-users" class="flex items-center gap-1"></div>
-    <!-- Sync status -->
-    <div id="sync-status" class="flex items-center gap-1.5 text-xs">
+    <div id="sync-status" class="flex items-center gap-1.5 text-xs hide-mobile">
       <div class="w-2 h-2 rounded-full bg-green-400 pulse"></div>
       <span class="hidden sm:block text-indigo-100">即時同步</span>
     </div>
     <!-- Action buttons -->
-    <button onclick="openCredDrawer()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition flex items-center gap-1">
-      <i class="fas fa-ticket-alt"></i>
-      <span class="hidden sm:block">憑證</span>
-    </button>
-    <button onclick="editCurrentTrip()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition">
-      <i class="fas fa-edit"></i>
-    </button>
+    <div class="flex items-center gap-1">
+      <button onclick="openExportModal()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition hide-mobile" title="匯出">
+        <i class="fas fa-download"></i>
+      </button>
+      <button onclick="openExpenseDrawer()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition hide-mobile" title="預算">
+        <i class="fas fa-wallet"></i>
+      </button>
+      <button onclick="openChecklistDrawer()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition hide-mobile" title="清單">
+        <i class="fas fa-check-square"></i>
+      </button>
+      <button onclick="openCredDrawer()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition hide-mobile" title="憑證">
+        <i class="fas fa-ticket-alt"></i>
+      </button>
+      <button onclick="editCurrentTrip()" class="glass border border-white/30 px-2.5 py-1.5 rounded-lg text-xs hover:bg-white/20 transition" title="編輯">
+        <i class="fas fa-edit"></i>
+      </button>
+    </div>
   </div>
 
   <!-- Trip Body -->
   <div class="flex flex-1 min-h-0">
-    <!-- Days Sidebar -->
-    <div class="w-48 lg:w-56 border-r bg-white flex flex-col shrink-0">
+    <!-- Days Sidebar (desktop) -->
+    <div class="desktop-sidebar w-48 lg:w-56 border-r bg-white flex flex-col shrink-0" id="days-sidebar">
       <div class="p-3 border-b flex items-center justify-between">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">天數</span>
         <button onclick="openDayModal()" class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-600 transition">
@@ -401,16 +648,16 @@
     </div>
 
     <!-- Events Main -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 trip-body-main">
       <!-- Day Header -->
-      <div id="day-header" class="hidden border-b bg-white px-4 py-3 flex items-center justify-between shrink-0">
-        <div>
-          <h3 class="font-semibold" id="day-title-display"></h3>
+      <div id="day-header" class="hidden border-b bg-white px-4 py-3 flex items-center justify-between shrink-0 flex-wrap gap-2">
+        <div class="min-w-0">
+          <h3 class="font-semibold text-sm sm:text-base" id="day-title-display"></h3>
           <p class="text-xs text-gray-400" id="day-notes-display"></p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button onclick="openMapForDay()" class="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-medium transition">
-            <i class="fas fa-route"></i> 路線圖
+            <i class="fas fa-route"></i> <span class="hidden sm:inline">路線圖</span>
           </button>
           <button onclick="openAddEvent()" class="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">
             <i class="fas fa-plus"></i> 新增行程
@@ -421,7 +668,7 @@
         </div>
       </div>
 
-      <!-- No day selected state -->
+      <!-- No day selected -->
       <div id="no-day-selected" class="flex-1 flex flex-col items-center justify-center text-center p-8">
         <div class="text-5xl mb-4">📅</div>
         <h3 class="text-lg font-semibold text-gray-600 mb-2">選擇或新增天數</h3>
@@ -443,10 +690,32 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Bottom Bar -->
+  <div class="mobile-bottom-bar fixed bottom-0 left-0 right-0 bg-white border-t z-30 px-2 py-1.5 flex justify-around" style="display:none;">
+    <button onclick="openMobileSidebar()" class="flex flex-col items-center gap-0.5 text-gray-500 hover:text-indigo-600 px-2 py-1">
+      <i class="fas fa-calendar-alt text-lg"></i><span class="text-[10px]">天數</span>
+    </button>
+    <button onclick="openExpenseDrawer()" class="flex flex-col items-center gap-0.5 text-gray-500 hover:text-indigo-600 px-2 py-1">
+      <i class="fas fa-wallet text-lg"></i><span class="text-[10px]">預算</span>
+    </button>
+    <button onclick="openChecklistDrawer()" class="flex flex-col items-center gap-0.5 text-gray-500 hover:text-indigo-600 px-2 py-1">
+      <i class="fas fa-check-square text-lg"></i><span class="text-[10px]">清單</span>
+    </button>
+    <button onclick="openCredDrawer()" class="flex flex-col items-center gap-0.5 text-gray-500 hover:text-indigo-600 px-2 py-1">
+      <i class="fas fa-ticket-alt text-lg"></i><span class="text-[10px]">憑證</span>
+    </button>
+    <button onclick="openExportModal()" class="flex flex-col items-center gap-0.5 text-gray-500 hover:text-indigo-600 px-2 py-1">
+      <i class="fas fa-download text-lg"></i><span class="text-[10px]">匯出</span>
+    </button>
+  </div>
 </div>
 
 <!-- ===== TOAST ===== -->
-<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm z-50 hidden transition-all"></div>
+<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm z-50 hidden transition-all" style="bottom:80px;"></div>
+
+<!-- ===== HIDDEN EXPORT CONTAINER ===== -->
+<div id="export-content" class="hidden" style="position:absolute;left:-9999px;top:0;width:800px;"></div>
 
 <script>
 // ============================================================
@@ -462,8 +731,6 @@ create table if not exists public.trips (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
-
--- 補齊 trips 欄位（若已存在會略過）
 alter table public.trips add column if not exists description text;
 alter table public.trips add column if not exists destination text;
 alter table public.trips add column if not exists start_date date;
@@ -494,6 +761,8 @@ create table if not exists public.events (
   maps_url text,
   notes text,
   order_index integer default 0,
+  cost decimal(10,2) default 0,
+  currency text default 'TWD',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -507,7 +776,32 @@ create table if not exists public.credentials (
   type text default 'other',
   url text,
   confirmation_number text,
+  qr_image_url text,
   notes text,
+  created_at timestamptz default now()
+);
+
+-- 建立 expenses 表
+create table if not exists public.expenses (
+  id uuid default gen_random_uuid() primary key,
+  trip_id uuid references public.trips(id) on delete cascade not null,
+  day_id uuid references public.days(id) on delete set null,
+  title text not null,
+  amount decimal(10,2) not null default 0,
+  currency text default 'TWD',
+  category text default 'other',
+  notes text,
+  created_at timestamptz default now()
+);
+
+-- 建立 checklist_items 表
+create table if not exists public.checklist_items (
+  id uuid default gen_random_uuid() primary key,
+  trip_id uuid references public.trips(id) on delete cascade not null,
+  title text not null,
+  category text default 'other',
+  checked boolean default false,
+  order_index integer default 0,
   created_at timestamptz default now()
 );
 
@@ -516,22 +810,36 @@ alter table public.trips enable row level security;
 alter table public.days enable row level security;
 alter table public.events enable row level security;
 alter table public.credentials enable row level security;
+alter table public.expenses enable row level security;
+alter table public.checklist_items enable row level security;
 
--- 建立開放存取政策（公開協作）
+-- 建立開放存取政策
 drop policy if exists "public_all" on public.trips;
 drop policy if exists "public_all" on public.days;
 drop policy if exists "public_all" on public.events;
 drop policy if exists "public_all" on public.credentials;
+drop policy if exists "public_all" on public.expenses;
+drop policy if exists "public_all" on public.checklist_items;
 create policy "public_all" on public.trips for all using (true) with check (true);
 create policy "public_all" on public.days for all using (true) with check (true);
 create policy "public_all" on public.events for all using (true) with check (true);
 create policy "public_all" on public.credentials for all using (true) with check (true);
+create policy "public_all" on public.expenses for all using (true) with check (true);
+create policy "public_all" on public.checklist_items for all using (true) with check (true);
 
 -- 啟用即時同步
 alter publication supabase_realtime add table public.trips;
 alter publication supabase_realtime add table public.days;
 alter publication supabase_realtime add table public.events;
-alter publication supabase_realtime add table public.credentials;`;
+alter publication supabase_realtime add table public.credentials;
+alter publication supabase_realtime add table public.expenses;
+alter publication supabase_realtime add table public.checklist_items;
+
+-- Storage bucket for QR codes
+insert into storage.buckets (id, name, public) values ('qr-codes', 'qr-codes', true) on conflict (id) do nothing;
+create policy "qr_public_select" on storage.objects for select using (bucket_id = 'qr-codes');
+create policy "qr_public_insert" on storage.objects for insert with check (bucket_id = 'qr-codes');
+create policy "qr_public_delete" on storage.objects for delete using (bucket_id = 'qr-codes');`;
 
 // ============================================================
 // INIT SUPABASE
@@ -549,11 +857,15 @@ const S = {
   days: [],
   events: [],
   credentials: [],
+  expenses: [],
+  checklist: [],
   onlineUsers: {},
   channels: [],
   userName: localStorage.getItem('tv_name') || '',
   userColor: localStorage.getItem('tv_color') || randColor(),
   userEmoji: localStorage.getItem('tv_emoji') || randEmoji(),
+  sortableInstance: null,
+  pendingQRFile: null,
 };
 
 // ============================================================
@@ -562,35 +874,39 @@ const S = {
 function randColor() {
   const colors = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899'];
   const c = colors[Math.floor(Math.random() * colors.length)];
-  localStorage.setItem('tv_color', c);
-  return c;
+  localStorage.setItem('tv_color', c); return c;
 }
 function randEmoji() {
   const emojis = ['😀','😎','🤩','🥳','🌟','🚀','🎉','🦋','🐻','🦊','🐼','🦁'];
   const e = emojis[Math.floor(Math.random() * emojis.length)];
-  localStorage.setItem('tv_emoji', e);
-  return e;
+  localStorage.setItem('tv_emoji', e); return e;
 }
 function formatDate(d) {
   if (!d) return '';
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
 }
-function formatTime(t) {
-  if (!t) return '';
-  return t.substring(0, 5);
-}
+function formatTime(t) { return t ? t.substring(0, 5) : ''; }
 function typeIcon(t) {
-  const icons = { flight:'✈️', hotel:'🏨', meal:'🍽️', activity:'🎯', transport:'🚗', shopping:'🛍️', other:'📝' };
-  return icons[t] || '📝';
+  return { flight:'✈️', hotel:'🏨', meal:'🍽️', activity:'🎯', transport:'🚗', shopping:'🛍️', other:'📝' }[t] || '📝';
 }
 function typeName(t) {
-  const names = { flight:'航班', hotel:'住宿', meal:'餐飲', activity:'活動', transport:'交通', shopping:'購物', other:'其他' };
-  return names[t] || '其他';
+  return { flight:'航班', hotel:'住宿', meal:'餐飲', activity:'活動', transport:'交通', shopping:'購物', other:'其他' }[t] || '其他';
 }
 function credIcon(t) {
-  const icons = { flight:'✈️', hotel:'🏨', activity:'🎫', transport:'🚗', other:'📄' };
-  return icons[t] || '📄';
+  return { flight:'✈️', hotel:'🏨', activity:'🎫', transport:'🚗', other:'📄' }[t] || '📄';
+}
+function expCatIcon(c) {
+  return { transport:'🚗', food:'🍽️', accommodation:'🏨', shopping:'🛍️', entertainment:'🎯', other:'📝' }[c] || '📝';
+}
+function expCatName(c) {
+  return { transport:'交通', food:'餐飲', accommodation:'住宿', shopping:'購物', entertainment:'娛樂', other:'其他' }[c] || '其他';
+}
+function checkCatIcon(c) {
+  return { documents:'📄', clothing:'👕', toiletries:'🧴', electronics:'🔌', medicine:'💊', other:'📦' }[c] || '📦';
+}
+function checkCatName(c) {
+  return { documents:'證件文件', clothing:'衣物', toiletries:'盥洗用品', electronics:'電子產品', medicine:'藥品', other:'其他' }[c] || '其他';
 }
 function mapsEmbedUrl(location, mapsUrl) {
   if (mapsUrl && mapsUrl.includes('maps')) return mapsUrl.replace('/maps?', '/maps/embed?') + '&output=embed';
@@ -604,15 +920,21 @@ function mapsLinkUrl(location, mapsUrl) {
 }
 function toast(msg, duration = 2500) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.remove('hidden');
+  el.textContent = msg; el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), duration);
 }
 function showSyncFlash() {
   const el = document.getElementById('sync-status');
   if (!el) return;
-  el.querySelector('.rounded-full').style.background = '#fbbf24';
-  setTimeout(() => { el.querySelector('.rounded-full').style.background = ''; }, 800);
+  const dot = el.querySelector('.rounded-full');
+  if (dot) { dot.style.background = '#fbbf24'; setTimeout(() => { dot.style.background = ''; }, 800); }
+}
+function formatMoney(amount) {
+  return Number(amount || 0).toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
 }
 
 // ============================================================
@@ -622,14 +944,12 @@ document.getElementById('setup-sql').textContent = SETUP_SQL;
 
 async function init() {
   if (!S.userName) {
-    document.getElementById('name-modal').classList.remove('hidden');
-    return;
+    document.getElementById('name-modal').classList.remove('hidden'); return;
   }
   document.getElementById('home-user-name').textContent = S.userName;
   document.getElementById('home-user-emoji').textContent = S.userEmoji;
   await loadTrips();
 }
-
 function saveName() {
   const val = document.getElementById('name-input').value.trim();
   if (!val) { toast('請輸入暱稱'); return; }
@@ -643,12 +963,9 @@ function saveName() {
   loadTrips();
 }
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveName(); });
-
 function showSetup() { document.getElementById('setup-modal').classList.remove('hidden'); }
 function closeSetup() { document.getElementById('setup-modal').classList.add('hidden'); }
-function copySQL() {
-  navigator.clipboard.writeText(SETUP_SQL).then(() => toast('已複製 SQL！'));
-}
+function copySQL() { navigator.clipboard.writeText(SETUP_SQL).then(() => toast('已複製 SQL！')); }
 
 // ============================================================
 // TRIPS
@@ -657,14 +974,11 @@ async function loadTrips() {
   document.getElementById('trips-loading').classList.remove('hidden');
   document.getElementById('trips-empty').classList.add('hidden');
   document.getElementById('trips-grid').innerHTML = '';
-
   const { data, error } = await sb.from('trips').select('*').order('created_at', { ascending: false });
   document.getElementById('trips-loading').classList.add('hidden');
-
   if (error) {
     console.error(error);
     if (error.code === '42P01') {
-      // Table doesn't exist
       document.getElementById('trips-empty').classList.remove('hidden');
       document.getElementById('trips-empty').innerHTML = `
         <div class="text-5xl mb-4">⚙️</div>
@@ -673,12 +987,9 @@ async function loadTrips() {
         <button onclick="showSetup()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-indigo-700">
           <i class="fas fa-database mr-1"></i> 查看設定說明
         </button>`;
-    } else {
-      toast('載入失敗：' + error.message);
-    }
+    } else { toast('載入失敗：' + error.message); }
     return;
   }
-
   S.trips = data || [];
   renderTripsGrid();
 }
@@ -688,12 +999,8 @@ function renderTripsGrid() {
   const empty = document.getElementById('trips-empty');
   if (S.trips.length === 0) {
     empty.classList.remove('hidden');
-    empty.innerHTML = `
-      <div class="text-6xl mb-4">🗺️</div>
-      <h3 class="text-xl font-semibold text-gray-700 mb-2">還沒有旅程</h3>
-      <p class="text-gray-400 text-sm">點擊「新增旅程」開始規劃你的旅行</p>`;
-    grid.innerHTML = '';
-    return;
+    empty.innerHTML = `<div class="text-6xl mb-4">🗺️</div><h3 class="text-xl font-semibold text-gray-700 mb-2">還沒有旅程</h3><p class="text-gray-400 text-sm">點擊「新增旅程」開始規劃你的旅行</p>`;
+    grid.innerHTML = ''; return;
   }
   empty.classList.add('hidden');
   grid.innerHTML = S.trips.map(trip => {
@@ -705,14 +1012,14 @@ function renderTripsGrid() {
          onclick="openTrip('${trip.id}')">
       <div class="bg-gradient-to-br from-indigo-500 to-teal-500 p-6 text-center">
         <div class="text-5xl mb-2">${trip.emoji || '✈️'}</div>
-        <h3 class="text-white font-bold text-lg">${trip.title}</h3>
-        ${trip.destination ? `<p class="text-indigo-100 text-sm mt-1">📍 ${trip.destination}</p>` : ''}
+        <h3 class="text-white font-bold text-lg">${esc(trip.title)}</h3>
+        ${trip.destination ? `<p class="text-indigo-100 text-sm mt-1">📍 ${esc(trip.destination)}</p>` : ''}
       </div>
       <div class="p-4">
         <p class="text-xs text-gray-500 flex items-center gap-1"><i class="fas fa-calendar-alt"></i> ${dateStr}</p>
-        ${trip.description ? `<p class="text-sm text-gray-600 mt-2 line-clamp-2">${trip.description}</p>` : ''}
+        ${trip.description ? `<p class="text-sm text-gray-600 mt-2 line-clamp-2">${esc(trip.description)}</p>` : ''}
         <div class="mt-3 flex justify-end">
-          <button onclick="event.stopPropagation(); deleteTripConfirm('${trip.id}', '${trip.title.replace(/'/g, "\\'")}')"
+          <button onclick="event.stopPropagation(); deleteTripConfirm('${trip.id}', '${esc(trip.title).replace(/'/g, "\\'")}')"
             class="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded transition">
             <i class="fas fa-trash"></i>
           </button>
@@ -722,7 +1029,6 @@ function renderTripsGrid() {
   }).join('');
 }
 
-// Trip modal
 function openTripModal(trip) {
   document.getElementById('trip-modal-title').textContent = trip ? '編輯旅程' : '新增旅程';
   document.getElementById('trip-modal-id').value = trip ? trip.id : '';
@@ -749,7 +1055,7 @@ async function saveTripModal() {
   };
   let error;
   if (id) {
-    ({ error } = await sb.from('trips').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id));
+    ({ error } = await sb.from('trips').update(payload).eq('id', id));
     if (!error) {
       const idx = S.trips.findIndex(t => t.id === id);
       if (idx !== -1) S.trips[idx] = { ...S.trips[idx], ...payload };
@@ -758,7 +1064,7 @@ async function saveTripModal() {
   } else {
     const { data, error: e } = await sb.from('trips').insert(payload).select().single();
     error = e;
-    if (!error && data) { S.trips.unshift(data); }
+    if (!error && data) S.trips.unshift(data);
   }
   if (error) { toast('儲存失敗：' + error.message); return; }
   toast(id ? '已更新旅程' : '旅程已建立');
@@ -781,39 +1087,23 @@ async function deleteTripConfirm(id, title) {
 async function openTrip(tripId) {
   S.trip = S.trips.find(t => t.id === tripId);
   if (!S.trip) return;
-  S.day = null;
-  S.days = [];
-  S.events = [];
-  S.credentials = [];
-
-  // Switch views
+  S.day = null; S.days = []; S.events = []; S.credentials = []; S.expenses = []; S.checklist = [];
   document.getElementById('home-view').classList.add('hidden');
   document.getElementById('trip-view').classList.remove('hidden');
   S.view = 'trip';
-
-  renderTripHeader();
+  renderTripHeader(); renderDaysSidebar(); showNoDaySelected();
+  await Promise.all([loadDays(), loadCredentials(), loadExpenses(), loadChecklist()]);
   renderDaysSidebar();
-  showNoDaySelected();
-
-  // Load data
-  await Promise.all([loadDays(), loadCredentials()]);
-  renderDaysSidebar();
-
-  // Subscribe realtime
   subscribeToTrip(tripId);
 }
-
 function goHome() {
-  // Unsubscribe
   S.channels.forEach(c => sb.removeChannel(c));
-  S.channels = [];
-  S.onlineUsers = {};
-  S.view = 'home';
+  S.channels = []; S.onlineUsers = {}; S.view = 'home';
+  if (S.sortableInstance) { S.sortableInstance.destroy(); S.sortableInstance = null; }
   document.getElementById('trip-view').classList.add('hidden');
   document.getElementById('home-view').classList.remove('hidden');
   loadTrips();
 }
-
 function renderTripHeader() {
   const t = S.trip;
   document.getElementById('trip-title-display').textContent = `${t.emoji || '✈️'} ${t.title}`;
@@ -821,48 +1111,50 @@ function renderTripHeader() {
   if (t.start_date && t.end_date) sub += (sub ? ' · ' : '') + `${formatDate(t.start_date)} → ${formatDate(t.end_date)}`;
   document.getElementById('trip-subtitle-display').textContent = sub;
 }
-
 function editCurrentTrip() { openTripModal(S.trip); }
 
 // ============================================================
 // DAYS
 // ============================================================
 async function loadDays() {
-  const { data, error } = await sb.from('days')
-    .select('*')
-    .eq('trip_id', S.trip.id)
-    .order('date', { ascending: true });
+  const { data, error } = await sb.from('days').select('*').eq('trip_id', S.trip.id).order('date', { ascending: true });
   if (error) { console.error(error); return; }
   S.days = data || [];
-  // Auto-assign day numbers
   S.days.forEach((d, i) => d.day_number = i + 1);
 }
-
 async function loadCredentials() {
-  const { data, error } = await sb.from('credentials')
-    .select('*')
-    .eq('trip_id', S.trip.id)
-    .order('created_at', { ascending: false });
+  const { data, error } = await sb.from('credentials').select('*').eq('trip_id', S.trip.id).order('created_at', { ascending: false });
   if (error) { console.error(error); return; }
   S.credentials = data || [];
+}
+async function loadExpenses() {
+  const { data, error } = await sb.from('expenses').select('*').eq('trip_id', S.trip.id).order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  S.expenses = data || [];
+}
+async function loadChecklist() {
+  const { data, error } = await sb.from('checklist_items').select('*').eq('trip_id', S.trip.id).order('order_index', { ascending: true });
+  if (error) { console.error(error); return; }
+  S.checklist = data || [];
 }
 
 function renderDaysSidebar() {
   const list = document.getElementById('days-list');
   const empty = document.getElementById('days-empty');
-  if (S.days.length === 0) {
-    list.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
-  }
+  if (S.days.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
   list.innerHTML = S.days.map(d => `
-    <div class="day-tab ${S.day && S.day.id === d.id ? 'active' : ''}
-         rounded-lg px-3 py-2 cursor-pointer transition group"
+    <div class="day-tab ${S.day && S.day.id === d.id ? 'active' : ''} rounded-lg px-3 py-2 cursor-pointer transition group flex items-center gap-2"
          onclick="selectDay('${d.id}')">
-      <div class="text-xs font-semibold">Day ${d.day_number}</div>
-      <div class="text-xs truncate">${formatDate(d.date)}</div>
-      ${d.title ? `<div class="text-xs truncate opacity-75">${d.title}</div>` : ''}
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold">Day ${d.day_number}</div>
+        <div class="text-xs truncate">${formatDate(d.date)}</div>
+        ${d.title ? `<div class="text-xs truncate opacity-75">${esc(d.title)}</div>` : ''}
+      </div>
+      <button onclick="event.stopPropagation(); confirmDeleteDay('${d.id}')"
+        class="w-5 h-5 flex items-center justify-center rounded hover:bg-red-100 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition shrink-0" title="刪除天數">
+        <i class="fas fa-trash text-[10px]"></i>
+      </button>
     </div>`).join('');
 }
 
@@ -876,24 +1168,17 @@ async function selectDay(dayId) {
   S.day = S.days.find(d => d.id === dayId);
   if (!S.day) return;
   renderDaysSidebar();
-
-  // Show events area
   document.getElementById('no-day-selected').classList.add('hidden');
   document.getElementById('day-header').classList.remove('hidden');
   document.getElementById('events-container').classList.remove('hidden');
-
-  // Render day header
   document.getElementById('day-title-display').textContent =
     `Day ${S.day.day_number} — ${formatDate(S.day.date)}${S.day.title ? ' · ' + S.day.title : ''}`;
   document.getElementById('day-notes-display').textContent = S.day.notes || '';
-
   await loadEvents();
   renderEvents();
+  closeMobileSidebar();
 }
-
-function editCurrentDay() {
-  if (S.day) openDayModal(S.day);
-}
+function editCurrentDay() { if (S.day) openDayModal(S.day); }
 
 // Day modal
 function openDayModal(day) {
@@ -902,9 +1187,11 @@ function openDayModal(day) {
   document.getElementById('day-date').value = day ? day.date : (S.trip.start_date || '');
   document.getElementById('day-title').value = day ? (day.title || '') : '';
   document.getElementById('day-notes').value = day ? (day.notes || '') : '';
+  document.getElementById('day-delete-btn').classList.toggle('hidden', !day);
   document.getElementById('day-modal').classList.remove('hidden');
 }
 function closeDayModal() { document.getElementById('day-modal').classList.add('hidden'); }
+
 async function saveDayModal() {
   const date = document.getElementById('day-date').value;
   if (!date) { toast('請選擇日期'); return; }
@@ -926,6 +1213,8 @@ async function saveDayModal() {
           `Day ${S.day.day_number} — ${formatDate(S.day.date)}${S.day.title ? ' · ' + S.day.title : ''}`;
         document.getElementById('day-notes-display').textContent = S.day.notes || '';
       }
+      S.days.sort((a, b) => a.date.localeCompare(b.date));
+      S.days.forEach((d, i) => d.day_number = i + 1);
     }
   } else {
     payload.trip_id = S.trip.id;
@@ -939,8 +1228,36 @@ async function saveDayModal() {
   }
   if (error) { toast('儲存失敗：' + error.message); return; }
   toast(id ? '已更新天數' : '天數已新增');
-  closeDayModal();
+  closeDayModal(); renderDaysSidebar();
+}
+
+// DELETE DAY
+async function deleteCurrentDay() {
+  const id = document.getElementById('day-modal-id').value;
+  if (!id) return;
+  if (!confirm('確定刪除此天數？該天所有行程也會一併刪除，此操作無法復原。')) return;
+  const { error } = await sb.from('days').delete().eq('id', id);
+  if (error) { toast('刪除失敗：' + error.message); return; }
+  S.days = S.days.filter(d => d.id !== id);
+  S.days.forEach((d, i) => d.day_number = i + 1);
+  S.events = S.events.filter(e => e.day_id !== id);
+  if (S.day && S.day.id === id) { S.day = null; showNoDaySelected(); }
+  closeDayModal(); renderDaysSidebar();
+  toast('天數已刪除');
+}
+
+async function confirmDeleteDay(dayId) {
+  const day = S.days.find(d => d.id === dayId);
+  if (!day) return;
+  if (!confirm(`確定刪除 Day ${day.day_number}（${formatDate(day.date)}）？該天所有行程也會一併刪除。`)) return;
+  const { error } = await sb.from('days').delete().eq('id', dayId);
+  if (error) { toast('刪除失敗'); return; }
+  S.days = S.days.filter(d => d.id !== dayId);
+  S.days.forEach((d, i) => d.day_number = i + 1);
+  S.events = S.events.filter(e => e.day_id !== dayId);
+  if (S.day && S.day.id === dayId) { S.day = null; showNoDaySelected(); }
   renderDaysSidebar();
+  toast('天數已刪除');
 }
 
 // ============================================================
@@ -949,9 +1266,8 @@ async function saveDayModal() {
 async function loadEvents() {
   if (!S.day) return;
   document.getElementById('events-loading').classList.remove('hidden');
-  const { data, error } = await sb.from('events')
-    .select('*')
-    .eq('day_id', S.day.id)
+  const { data, error } = await sb.from('events').select('*').eq('day_id', S.day.id)
+    .order('order_index', { ascending: true })
     .order('time', { ascending: true, nullsFirst: false });
   document.getElementById('events-loading').classList.add('hidden');
   if (error) { console.error(error); return; }
@@ -961,50 +1277,51 @@ async function loadEvents() {
 function renderEvents() {
   const list = document.getElementById('events-list');
   const empty = document.getElementById('events-empty');
-
-  // Filter events for current day
   const dayEvents = S.day
     ? S.events.filter(e => e.day_id === S.day.id)
-      .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'))
+        .sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || (a.time || '99:99').localeCompare(b.time || '99:99'))
     : [];
 
   if (dayEvents.length === 0) {
     empty.classList.remove('hidden');
     list.innerHTML = '<div class="timeline-line"></div>';
+    if (S.sortableInstance) { S.sortableInstance.destroy(); S.sortableInstance = null; }
     return;
   }
   empty.classList.add('hidden');
 
-  // Get credentials per event
   const credMap = {};
-  S.credentials.forEach(c => {
-    if (c.event_id) {
-      if (!credMap[c.event_id]) credMap[c.event_id] = [];
-      credMap[c.event_id].push(c);
-    }
-  });
+  S.credentials.forEach(c => { if (c.event_id) { if (!credMap[c.event_id]) credMap[c.event_id] = []; credMap[c.event_id].push(c); } });
 
   list.innerHTML = '<div class="timeline-line"></div>' + dayEvents.map(ev => {
     const creds = credMap[ev.id] || [];
-    const credBadges = creds.map(c => `
-      <a href="${c.url || '#'}" target="${c.url ? '_blank' : '_self'}"
-         title="${c.title}${c.confirmation_number ? ' · ' + c.confirmation_number : ''}"
-         class="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2 py-0.5 text-xs hover:bg-amber-100 transition">
-        ${credIcon(c.type)} ${c.title}
-      </a>`).join('');
+    const credBadges = creds.map(c => {
+      const hasQR = c.qr_image_url;
+      return `<span class="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2 py-0.5 text-xs hover:bg-amber-100 transition cursor-pointer"
+        ${hasQR ? `onclick="viewQR('${esc(c.qr_image_url)}','${esc(c.title)}','${esc(c.confirmation_number || '')}')"` :
+          (c.url ? `onclick="window.open('${esc(c.url)}','_blank')"` : '')}
+        title="${esc(c.title)}${c.confirmation_number ? ' · ' + c.confirmation_number : ''}${hasQR ? ' (點擊查看QR)' : ''}">
+        ${hasQR ? '<i class="fas fa-qrcode"></i>' : credIcon(c.type)} ${esc(c.title)}
+      </span>`;
+    }).join('');
+    const costStr = ev.cost && Number(ev.cost) > 0 ? `<span class="text-xs text-emerald-600 font-medium">${ev.currency || 'TWD'} ${formatMoney(ev.cost)}</span>` : '';
 
     return `
-    <div class="relative pl-4 fade-in">
+    <div class="relative pl-4 fade-in event-item" data-id="${ev.id}">
       <div class="event-dot type-${ev.type}" style="box-shadow:0 0 0 2px currentColor"></div>
       <div class="bg-type-${ev.type} rounded-xl p-3 ml-2 hover:shadow-sm transition">
         <div class="flex items-start gap-2">
+          <div class="drag-handle shrink-0 mt-1 text-gray-300 hover:text-gray-500 touch-manipulation" title="拖曳排序">
+            <i class="fas fa-grip-vertical text-xs"></i>
+          </div>
           <div class="shrink-0 text-sm font-mono text-gray-500 mt-0.5 w-10">
             ${formatTime(ev.time) || '—'}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-base">${typeIcon(ev.type)}</span>
-              <span class="font-semibold text-gray-800 text-sm">${ev.title}</span>
+              <span class="font-semibold text-gray-800 text-sm">${esc(ev.title)}</span>
+              ${costStr}
               <span class="ml-auto text-xs text-gray-400">${ev.end_time ? '→ ' + formatTime(ev.end_time) : ''}</span>
             </div>
             ${ev.location ? `
@@ -1012,10 +1329,10 @@ function renderEvents() {
               <button onclick="openMap('${ev.id}')"
                 class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline">
                 <i class="fas fa-map-marker-alt text-xs"></i>
-                <span class="truncate max-w-[200px]">${ev.location}</span>
+                <span class="truncate max-w-[200px]">${esc(ev.location)}</span>
               </button>
             </div>` : ''}
-            ${ev.notes ? `<p class="text-xs text-gray-500 mt-1 line-clamp-2">${ev.notes}</p>` : ''}
+            ${ev.notes ? `<p class="text-xs text-gray-500 mt-1 line-clamp-2">${esc(ev.notes)}</p>` : ''}
             ${creds.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${credBadges}</div>` : ''}
           </div>
           <div class="flex gap-1 shrink-0">
@@ -1030,6 +1347,33 @@ function renderEvents() {
       </div>
     </div>`;
   }).join('');
+
+  initSortable();
+}
+
+// Drag & Drop with SortableJS
+function initSortable() {
+  if (S.sortableInstance) S.sortableInstance.destroy();
+  const el = document.getElementById('events-list');
+  S.sortableInstance = new Sortable(el, {
+    animation: 200,
+    handle: '.drag-handle',
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    draggable: '.event-item',
+    onEnd: async function(evt) {
+      const items = el.querySelectorAll('.event-item');
+      const updates = [];
+      items.forEach((item, idx) => {
+        const id = item.dataset.id;
+        const ev = S.events.find(e => e.id === id);
+        if (ev) { ev.order_index = idx; updates.push({ id, order_index: idx }); }
+      });
+      for (const u of updates) {
+        await sb.from('events').update({ order_index: u.order_index }).eq('id', u.id);
+      }
+    }
+  });
 }
 
 // Event modal
@@ -1044,6 +1388,8 @@ function openEventModal(ev) {
   document.getElementById('event-location').value = ev ? (ev.location || '') : '';
   document.getElementById('event-maps-url').value = ev ? (ev.maps_url || '') : '';
   document.getElementById('event-notes').value = ev ? (ev.notes || '') : '';
+  document.getElementById('event-cost').value = ev && ev.cost ? ev.cost : '';
+  document.getElementById('event-currency').value = ev ? (ev.currency || 'TWD') : 'TWD';
   document.getElementById('event-modal').classList.remove('hidden');
 }
 function closeEventModal() { document.getElementById('event-modal').classList.add('hidden'); }
@@ -1061,31 +1407,27 @@ async function saveEventModal() {
     location: document.getElementById('event-location').value.trim() || null,
     maps_url: document.getElementById('event-maps-url').value.trim() || null,
     notes: document.getElementById('event-notes').value.trim() || null,
+    cost: parseFloat(document.getElementById('event-cost').value) || 0,
+    currency: document.getElementById('event-currency').value || 'TWD',
   };
   let error;
   if (id) {
-    ({ error } = await sb.from('events').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id));
-    if (!error) {
-      const idx = S.events.findIndex(e => e.id === id);
-      if (idx !== -1) S.events[idx] = { ...S.events[idx], ...payload };
-    }
+    ({ error } = await sb.from('events').update(payload).eq('id', id));
+    if (!error) { const idx = S.events.findIndex(e => e.id === id); if (idx !== -1) S.events[idx] = { ...S.events[idx], ...payload }; }
   } else {
     payload.day_id = S.day.id;
     payload.trip_id = S.trip.id;
+    payload.order_index = S.events.filter(e => e.day_id === S.day.id).length;
     const { data, error: e } = await sb.from('events').insert(payload).select().single();
     error = e;
     if (!error && data) S.events.push(data);
   }
   if (error) { toast('儲存失敗：' + error.message); return; }
   toast(id ? '已更新行程' : '行程已新增');
-  closeEventModal();
-  renderEvents();
+  closeEventModal(); renderEvents();
 }
 
-function editEvent(id) {
-  const ev = S.events.find(e => e.id === id);
-  if (ev) openEventModal(ev);
-}
+function editEvent(id) { const ev = S.events.find(e => e.id === id); if (ev) openEventModal(ev); }
 
 async function deleteEvent(id) {
   if (!confirm('確定刪除此行程？')) return;
@@ -1097,21 +1439,15 @@ async function deleteEvent(id) {
 }
 
 // ============================================================
-// CREDENTIALS
+// CREDENTIALS + QR UPLOAD
 // ============================================================
-function openCredDrawer() {
-  renderCredList();
-  document.getElementById('cred-drawer').classList.remove('hidden');
-}
+function openCredDrawer() { renderCredList(); document.getElementById('cred-drawer').classList.remove('hidden'); }
 function closeCredDrawer() { document.getElementById('cred-drawer').classList.add('hidden'); }
 
 function renderCredList() {
   const list = document.getElementById('cred-list');
   if (S.credentials.length === 0) {
-    list.innerHTML = `<div class="text-center py-8 text-gray-400">
-      <div class="text-3xl mb-2">📋</div>
-      <p class="text-sm">還沒有憑證，點擊新增</p>
-    </div>`;
+    list.innerHTML = `<div class="text-center py-8 text-gray-400"><div class="text-3xl mb-2">📋</div><p class="text-sm">還沒有憑證，點擊新增</p></div>`;
     return;
   }
   list.innerHTML = S.credentials.map(c => `
@@ -1119,25 +1455,28 @@ function renderCredList() {
       <div class="flex items-start gap-2">
         <span class="text-xl">${credIcon(c.type)}</span>
         <div class="flex-1 min-w-0">
-          <div class="font-medium text-sm text-gray-800">${c.title}</div>
-          ${c.confirmation_number ? `<div class="text-xs text-gray-500 font-mono mt-0.5">編號：${c.confirmation_number}</div>` : ''}
-          ${c.notes ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2">${c.notes}</p>` : ''}
-          <div class="flex gap-2 mt-2">
-            ${c.url ? `<a href="${c.url}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center gap-1">
-              <i class="fas fa-external-link-alt"></i> 開啟連結
-            </a>` : ''}
+          <div class="font-medium text-sm text-gray-800">${esc(c.title)}</div>
+          ${c.confirmation_number ? `<div class="text-xs text-gray-500 font-mono mt-0.5">編號：${esc(c.confirmation_number)}</div>` : ''}
+          ${c.notes ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2">${esc(c.notes)}</p>` : ''}
+          <div class="flex gap-2 mt-2 flex-wrap">
+            ${c.url ? `<a href="${esc(c.url)}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center gap-1"><i class="fas fa-external-link-alt"></i> 開啟連結</a>` : ''}
+            ${c.qr_image_url ? `<button onclick="viewQR('${esc(c.qr_image_url)}','${esc(c.title)}','${esc(c.confirmation_number || '')}')" class="text-xs text-purple-500 hover:underline flex items-center gap-1"><i class="fas fa-qrcode"></i> 查看 QR Code</button>` : ''}
           </div>
         </div>
         <div class="flex gap-1">
-          <button onclick="editCred('${c.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400">
-            <i class="fas fa-pen text-xs"></i>
-          </button>
-          <button onclick="deleteCred('${c.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-red-300 hover:text-red-500">
-            <i class="fas fa-trash text-xs"></i>
-          </button>
+          <button onclick="editCred('${c.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400"><i class="fas fa-pen text-xs"></i></button>
+          <button onclick="deleteCred('${c.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-red-300 hover:text-red-500"><i class="fas fa-trash text-xs"></i></button>
         </div>
       </div>
+      ${c.qr_image_url ? `<img src="${esc(c.qr_image_url)}" class="mt-2 qr-preview cursor-pointer" onclick="viewQR('${esc(c.qr_image_url)}','${esc(c.title)}','${esc(c.confirmation_number || '')}')">` : ''}
     </div>`).join('');
+}
+
+function viewQR(url, title, number) {
+  document.getElementById('qr-viewer-img').src = url;
+  document.getElementById('qr-viewer-title').textContent = title;
+  document.getElementById('qr-viewer-number').textContent = number ? `確認碼：${number}` : '';
+  document.getElementById('qr-viewer-modal').classList.remove('hidden');
 }
 
 function openCredModal(cred) {
@@ -1148,21 +1487,75 @@ function openCredModal(cred) {
   document.getElementById('cred-confirmation').value = cred ? (cred.confirmation_number || '') : '';
   document.getElementById('cred-url').value = cred ? (cred.url || '') : '';
   document.getElementById('cred-notes').value = cred ? (cred.notes || '') : '';
+  document.getElementById('cred-qr-url').value = cred ? (cred.qr_image_url || '') : '';
+  S.pendingQRFile = null;
+
+  // QR preview
+  if (cred && cred.qr_image_url) {
+    document.getElementById('qr-preview-img').src = cred.qr_image_url;
+    document.getElementById('qr-preview-container').classList.remove('hidden');
+    document.getElementById('qr-upload-placeholder').classList.add('hidden');
+  } else {
+    document.getElementById('qr-preview-container').classList.add('hidden');
+    document.getElementById('qr-upload-placeholder').classList.remove('hidden');
+  }
+  document.getElementById('qr-file-input').value = '';
 
   // Populate events select
+  const allEvents = S.events.length ? S.events : [];
   const sel = document.getElementById('cred-event');
   sel.innerHTML = '<option value="">-- 不關聯特定行程 --</option>' +
-    S.events.map(e => `<option value="${e.id}" ${cred && cred.event_id === e.id ? 'selected' : ''}>
-      ${typeIcon(e.type)} ${e.title}${e.time ? ' (' + formatTime(e.time) + ')' : ''}
-    </option>`).join('');
+    allEvents.map(e => `<option value="${e.id}" ${cred && cred.event_id === e.id ? 'selected' : ''}>${typeIcon(e.type)} ${esc(e.title)}${e.time ? ' (' + formatTime(e.time) + ')' : ''}</option>`).join('');
 
   document.getElementById('cred-modal').classList.remove('hidden');
 }
-function closeCredModal() { document.getElementById('cred-modal').classList.add('hidden'); }
+function closeCredModal() { document.getElementById('cred-modal').classList.add('hidden'); S.pendingQRFile = null; }
+
+function handleQRFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('請選擇圖片檔案'); return; }
+  if (file.size > 5 * 1024 * 1024) { toast('圖片不得超過 5MB'); return; }
+  S.pendingQRFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('qr-preview-img').src = e.target.result;
+    document.getElementById('qr-preview-container').classList.remove('hidden');
+    document.getElementById('qr-upload-placeholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeQRImage() {
+  S.pendingQRFile = null;
+  document.getElementById('cred-qr-url').value = '';
+  document.getElementById('qr-preview-container').classList.add('hidden');
+  document.getElementById('qr-upload-placeholder').classList.remove('hidden');
+  document.getElementById('qr-file-input').value = '';
+}
+
+async function uploadQRImage(file) {
+  const ext = file.name.split('.').pop();
+  const fileName = `${S.trip.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+  const { error } = await sb.storage.from('qr-codes').upload(fileName, file, { contentType: file.type });
+  if (error) { console.error('Upload error:', error); toast('QR 圖片上傳失敗：' + error.message); return null; }
+  const { data } = sb.storage.from('qr-codes').getPublicUrl(fileName);
+  return data.publicUrl;
+}
 
 async function saveCredModal() {
   const title = document.getElementById('cred-title').value.trim();
   if (!title) { toast('請輸入憑證名稱'); return; }
+  const btn = document.getElementById('cred-save-btn');
+  btn.disabled = true; btn.textContent = '儲存中...';
+
+  let qrUrl = document.getElementById('cred-qr-url').value || null;
+  if (S.pendingQRFile) {
+    const uploaded = await uploadQRImage(S.pendingQRFile);
+    if (uploaded) qrUrl = uploaded;
+    else { btn.disabled = false; btn.textContent = '儲存'; return; }
+  }
+
   const id = document.getElementById('cred-modal-id').value;
   const payload = {
     title,
@@ -1171,40 +1564,368 @@ async function saveCredModal() {
     url: document.getElementById('cred-url').value.trim() || null,
     notes: document.getElementById('cred-notes').value.trim() || null,
     event_id: document.getElementById('cred-event').value || null,
+    qr_image_url: qrUrl,
   };
   let error;
   if (id) {
     ({ error } = await sb.from('credentials').update(payload).eq('id', id));
-    if (!error) {
-      const idx = S.credentials.findIndex(c => c.id === id);
-      if (idx !== -1) S.credentials[idx] = { ...S.credentials[idx], ...payload };
-    }
+    if (!error) { const idx = S.credentials.findIndex(c => c.id === id); if (idx !== -1) S.credentials[idx] = { ...S.credentials[idx], ...payload }; }
   } else {
     payload.trip_id = S.trip.id;
     const { data, error: e } = await sb.from('credentials').insert(payload).select().single();
     error = e;
     if (!error && data) S.credentials.unshift(data);
   }
+  btn.disabled = false; btn.textContent = '儲存';
   if (error) { toast('儲存失敗：' + error.message); return; }
   toast(id ? '已更新憑證' : '憑證已新增');
-  closeCredModal();
-  renderCredList();
-  renderEvents(); // Refresh credential badges on events
+  S.pendingQRFile = null;
+  closeCredModal(); renderCredList(); renderEvents();
 }
 
-function editCred(id) {
-  const c = S.credentials.find(c => c.id === id);
-  if (c) openCredModal(c);
-}
+function editCred(id) { const c = S.credentials.find(c => c.id === id); if (c) openCredModal(c); }
 
 async function deleteCred(id) {
   if (!confirm('確定刪除此憑證？')) return;
   const { error } = await sb.from('credentials').delete().eq('id', id);
   if (error) { toast('刪除失敗'); return; }
   S.credentials = S.credentials.filter(c => c.id !== id);
-  renderCredList();
-  renderEvents();
+  renderCredList(); renderEvents();
   toast('已刪除憑證');
+}
+
+// ============================================================
+// EXPENSES
+// ============================================================
+function openExpenseDrawer() {
+  renderExpenseSummary(); renderExpenseList();
+  document.getElementById('expense-drawer').classList.remove('hidden');
+}
+function closeExpenseDrawer() { document.getElementById('expense-drawer').classList.add('hidden'); }
+
+function renderExpenseSummary() {
+  const byCurrency = {};
+  S.expenses.forEach(e => {
+    const cur = e.currency || 'TWD';
+    byCurrency[cur] = (byCurrency[cur] || 0) + Number(e.amount || 0);
+  });
+  // Also add event costs
+  const allTripEvents = S.events;
+  allTripEvents.forEach(e => {
+    if (e.cost && Number(e.cost) > 0) {
+      const cur = e.currency || 'TWD';
+      byCurrency[cur] = (byCurrency[cur] || 0) + Number(e.cost);
+    }
+  });
+
+  const byCat = {};
+  S.expenses.forEach(e => {
+    const cat = e.category || 'other';
+    byCat[cat] = (byCat[cat] || 0) + Number(e.amount || 0);
+  });
+
+  const el = document.getElementById('expense-summary');
+  if (Object.keys(byCurrency).length === 0) {
+    el.innerHTML = '<p class="text-sm text-gray-400 text-center py-2">尚無花費記錄</p>';
+    return;
+  }
+  const totals = Object.entries(byCurrency).map(([cur, amt]) => `<span class="font-bold text-lg text-emerald-700">${cur} ${formatMoney(amt)}</span>`).join('<span class="mx-1 text-gray-300">|</span>');
+  const cats = Object.entries(byCat).map(([cat, amt]) => `<span class="text-xs">${expCatIcon(cat)} ${expCatName(cat)}: ${formatMoney(amt)}</span>`).join('&nbsp;&nbsp;');
+  el.innerHTML = `<div class="text-center mb-1">${totals}</div><div class="text-center text-gray-500">${cats}</div>`;
+}
+
+function renderExpenseList() {
+  const list = document.getElementById('expense-list');
+  if (S.expenses.length === 0) {
+    list.innerHTML = `<div class="text-center py-8 text-gray-400"><div class="text-3xl mb-2">💰</div><p class="text-sm">還沒有花費記錄</p></div>`;
+    return;
+  }
+  list.innerHTML = S.expenses.map(e => {
+    const day = e.day_id ? S.days.find(d => d.id === e.day_id) : null;
+    return `
+    <div class="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 shadow-sm fade-in">
+      <span class="text-lg">${expCatIcon(e.category)}</span>
+      <div class="flex-1 min-w-0">
+        <div class="font-medium text-sm">${esc(e.title)}</div>
+        <div class="text-xs text-gray-400">${day ? 'Day ' + day.day_number : ''} ${e.notes ? '· ' + esc(e.notes) : ''}</div>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="font-semibold text-sm text-emerald-700">${e.currency} ${formatMoney(e.amount)}</div>
+      </div>
+      <div class="flex gap-1 shrink-0">
+        <button onclick="editExpense('${e.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400"><i class="fas fa-pen text-xs"></i></button>
+        <button onclick="deleteExpense('${e.id}')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-red-300 hover:text-red-500"><i class="fas fa-trash text-xs"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openExpenseModal(exp) {
+  document.getElementById('expense-modal-title').textContent = exp ? '編輯花費' : '新增花費';
+  document.getElementById('expense-modal-id').value = exp ? exp.id : '';
+  document.getElementById('expense-title').value = exp ? exp.title : '';
+  document.getElementById('expense-amount').value = exp ? exp.amount : '';
+  document.getElementById('expense-currency').value = exp ? (exp.currency || 'TWD') : 'TWD';
+  document.getElementById('expense-category').value = exp ? (exp.category || 'other') : 'food';
+  document.getElementById('expense-notes').value = exp ? (exp.notes || '') : '';
+  // Populate days
+  const sel = document.getElementById('expense-day');
+  sel.innerHTML = '<option value="">-- 不指定 --</option>' +
+    S.days.map(d => `<option value="${d.id}" ${exp && exp.day_id === d.id ? 'selected' : ''}>Day ${d.day_number} - ${formatDate(d.date)}</option>`).join('');
+  document.getElementById('expense-modal').classList.remove('hidden');
+}
+function closeExpenseModal() { document.getElementById('expense-modal').classList.add('hidden'); }
+
+async function saveExpenseModal() {
+  const title = document.getElementById('expense-title').value.trim();
+  const amount = parseFloat(document.getElementById('expense-amount').value);
+  if (!title) { toast('請輸入花費項目'); return; }
+  if (isNaN(amount) || amount <= 0) { toast('請輸入有效金額'); return; }
+  const id = document.getElementById('expense-modal-id').value;
+  const payload = {
+    title, amount,
+    currency: document.getElementById('expense-currency').value || 'TWD',
+    category: document.getElementById('expense-category').value || 'other',
+    day_id: document.getElementById('expense-day').value || null,
+    notes: document.getElementById('expense-notes').value.trim() || null,
+  };
+  let error;
+  if (id) {
+    ({ error } = await sb.from('expenses').update(payload).eq('id', id));
+    if (!error) { const idx = S.expenses.findIndex(e => e.id === id); if (idx !== -1) S.expenses[idx] = { ...S.expenses[idx], ...payload }; }
+  } else {
+    payload.trip_id = S.trip.id;
+    const { data, error: e } = await sb.from('expenses').insert(payload).select().single();
+    error = e;
+    if (!error && data) S.expenses.unshift(data);
+  }
+  if (error) { toast('儲存失敗：' + error.message); return; }
+  toast(id ? '已更新花費' : '花費已新增');
+  closeExpenseModal(); renderExpenseSummary(); renderExpenseList();
+}
+
+function editExpense(id) { const e = S.expenses.find(x => x.id === id); if (e) openExpenseModal(e); }
+
+async function deleteExpense(id) {
+  if (!confirm('確定刪除此花費？')) return;
+  const { error } = await sb.from('expenses').delete().eq('id', id);
+  if (error) { toast('刪除失敗'); return; }
+  S.expenses = S.expenses.filter(e => e.id !== id);
+  renderExpenseSummary(); renderExpenseList();
+  toast('已刪除花費');
+}
+
+// ============================================================
+// CHECKLIST
+// ============================================================
+function openChecklistDrawer() {
+  renderChecklistProgress(); renderChecklistList();
+  document.getElementById('checklist-drawer').classList.remove('hidden');
+}
+function closeChecklistDrawer() { document.getElementById('checklist-drawer').classList.add('hidden'); }
+
+function renderChecklistProgress() {
+  const total = S.checklist.length;
+  const checked = S.checklist.filter(c => c.checked).length;
+  const pct = total > 0 ? Math.round(checked / total * 100) : 0;
+  document.getElementById('checklist-progress').innerHTML = total === 0
+    ? '<p class="text-sm text-gray-400 text-center">尚無清單項目</p>'
+    : `<div class="flex items-center gap-3">
+        <div class="flex-1 bg-gray-200 rounded-full h-2.5">
+          <div class="bg-gradient-to-r from-indigo-500 to-teal-500 h-2.5 rounded-full transition-all" style="width:${pct}%"></div>
+        </div>
+        <span class="text-sm font-semibold text-gray-600">${checked}/${total}</span>
+       </div>`;
+}
+
+function renderChecklistList() {
+  const list = document.getElementById('checklist-list');
+  if (S.checklist.length === 0) {
+    list.innerHTML = `<div class="text-center py-8 text-gray-400"><div class="text-3xl mb-2">✅</div><p class="text-sm">還沒有清單項目</p></div>`;
+    return;
+  }
+  // Group by category
+  const groups = {};
+  S.checklist.forEach(item => {
+    const cat = item.category || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(item);
+  });
+  list.innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <div>
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+        ${checkCatIcon(cat)} ${checkCatName(cat)} <span class="text-gray-300">(${items.filter(i => i.checked).length}/${items.length})</span>
+      </div>
+      <div class="space-y-1">
+        ${items.map(item => `
+          <div class="flex items-center gap-2 bg-white border border-gray-100 rounded-lg px-3 py-2 group">
+            <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleChecklistItem('${item.id}', this.checked)"
+              class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+            <span class="flex-1 text-sm ${item.checked ? 'check-done' : ''}">${esc(item.title)}</span>
+            <button onclick="deleteChecklistItem('${item.id}')"
+              class="w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+              <i class="fas fa-times text-xs"></i>
+            </button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function openChecklistModal() { document.getElementById('checklist-modal').classList.remove('hidden'); document.getElementById('checklist-item-title').value = ''; }
+function closeChecklistModal() { document.getElementById('checklist-modal').classList.add('hidden'); }
+
+async function saveChecklistItem() {
+  const title = document.getElementById('checklist-item-title').value.trim();
+  if (!title) { toast('請輸入項目名稱'); return; }
+  const payload = {
+    trip_id: S.trip.id,
+    title,
+    category: document.getElementById('checklist-item-category').value || 'other',
+    order_index: S.checklist.length,
+  };
+  const { data, error } = await sb.from('checklist_items').insert(payload).select().single();
+  if (error) { toast('新增失敗：' + error.message); return; }
+  S.checklist.push(data);
+  toast('已新增項目');
+  closeChecklistModal(); renderChecklistProgress(); renderChecklistList();
+}
+
+async function toggleChecklistItem(id, checked) {
+  const { error } = await sb.from('checklist_items').update({ checked }).eq('id', id);
+  if (error) { toast('更新失敗'); return; }
+  const item = S.checklist.find(c => c.id === id);
+  if (item) item.checked = checked;
+  renderChecklistProgress(); renderChecklistList();
+}
+
+async function deleteChecklistItem(id) {
+  const { error } = await sb.from('checklist_items').delete().eq('id', id);
+  if (error) { toast('刪除失敗'); return; }
+  S.checklist = S.checklist.filter(c => c.id !== id);
+  renderChecklistProgress(); renderChecklistList();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function openExportModal() { document.getElementById('export-modal').classList.remove('hidden'); }
+function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
+
+function buildExportHTML() {
+  const t = S.trip;
+  let html = `<div style="font-family:'Segoe UI',system-ui,sans-serif;padding:32px;background:white;color:#1f2937;">`;
+  html += `<div style="text-align:center;margin-bottom:24px;">
+    <div style="font-size:48px;">${t.emoji || '✈️'}</div>
+    <h1 style="font-size:24px;font-weight:bold;margin:8px 0;">${esc(t.title)}</h1>
+    ${t.destination ? `<p style="color:#6b7280;">📍 ${esc(t.destination)}</p>` : ''}
+    ${t.start_date && t.end_date ? `<p style="color:#9ca3af;font-size:14px;">${formatDate(t.start_date)} → ${formatDate(t.end_date)}</p>` : ''}
+  </div>`;
+
+  S.days.forEach(day => {
+    const dayEvents = S.events.filter(e => e.day_id === day.id)
+      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || (a.time || '99:99').localeCompare(b.time || '99:99'));
+    html += `<div style="margin-bottom:20px;border-left:3px solid #6366f1;padding-left:16px;">
+      <h2 style="font-size:16px;font-weight:bold;color:#4f46e5;margin-bottom:8px;">Day ${day.day_number} — ${formatDate(day.date)}${day.title ? ' · ' + esc(day.title) : ''}</h2>`;
+    if (dayEvents.length === 0) {
+      html += `<p style="color:#9ca3af;font-size:13px;">（無行程）</p>`;
+    } else {
+      dayEvents.forEach(ev => {
+        html += `<div style="margin-bottom:8px;padding:8px 12px;background:#f9fafb;border-radius:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:monospace;color:#6b7280;min-width:40px;">${formatTime(ev.time) || '—'}</span>
+            <span>${typeIcon(ev.type)}</span>
+            <strong style="font-size:14px;">${esc(ev.title)}</strong>
+            ${ev.cost && Number(ev.cost) > 0 ? `<span style="color:#059669;font-size:12px;margin-left:auto;">${ev.currency || 'TWD'} ${formatMoney(ev.cost)}</span>` : ''}
+          </div>
+          ${ev.location ? `<div style="font-size:12px;color:#3b82f6;margin-top:2px;">📍 ${esc(ev.location)}</div>` : ''}
+          ${ev.notes ? `<div style="font-size:12px;color:#9ca3af;margin-top:2px;">${esc(ev.notes)}</div>` : ''}
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+
+  // Expenses summary
+  if (S.expenses.length > 0) {
+    const byCurrency = {};
+    S.expenses.forEach(e => { const c = e.currency || 'TWD'; byCurrency[c] = (byCurrency[c] || 0) + Number(e.amount); });
+    html += `<div style="margin-top:24px;padding:16px;background:#f0fdf4;border-radius:12px;">
+      <h3 style="font-weight:bold;margin-bottom:8px;">💰 花費總計</h3>`;
+    Object.entries(byCurrency).forEach(([cur, amt]) => {
+      html += `<div style="font-size:14px;">${cur}: ${formatMoney(amt)}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+async function exportPDF() {
+  closeExportModal();
+  toast('正在生成 PDF...', 5000);
+  const container = document.getElementById('export-content');
+  container.innerHTML = buildExportHTML();
+  container.classList.remove('hidden');
+  container.style.position = 'absolute'; container.style.left = '-9999px';
+
+  try {
+    const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth - 20;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let y = 10;
+    const imgData = canvas.toDataURL('image/png');
+
+    if (imgHeight <= pageHeight - 20) {
+      pdf.addImage(imgData, 'PNG', 10, y, imgWidth, imgHeight);
+    } else {
+      // Multi-page
+      let srcY = 0;
+      const srcPageHeight = Math.floor(canvas.width * (pageHeight - 20) / imgWidth);
+      while (srcY < canvas.height) {
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = Math.min(srcPageHeight, canvas.height - srcY);
+        const ctx = pageCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, srcY, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
+        const pageData = pageCanvas.toDataURL('image/png');
+        const h = (pageCanvas.height * imgWidth) / canvas.width;
+        if (srcY > 0) pdf.addPage();
+        pdf.addImage(pageData, 'PNG', 10, 10, imgWidth, h);
+        srcY += srcPageHeight;
+      }
+    }
+    pdf.save(`${S.trip.title}-行程表.pdf`);
+    toast('PDF 已下載');
+  } catch (e) {
+    console.error(e); toast('PDF 生成失敗');
+  }
+  container.classList.add('hidden');
+}
+
+async function exportImage() {
+  closeExportModal();
+  toast('正在生成圖片...', 5000);
+  const container = document.getElementById('export-content');
+  container.innerHTML = buildExportHTML();
+  container.classList.remove('hidden');
+  container.style.position = 'absolute'; container.style.left = '-9999px';
+
+  try {
+    const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const link = document.createElement('a');
+    link.download = `${S.trip.title}-行程表.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('圖片已下載');
+  } catch (e) {
+    console.error(e); toast('圖片生成失敗');
+  }
+  container.classList.add('hidden');
 }
 
 // ============================================================
@@ -1213,40 +1934,26 @@ async function deleteCred(id) {
 function openMap(eventId) {
   const ev = S.events.find(e => e.id === eventId);
   if (!ev || !ev.location) return;
-
-  const embedUrl = mapsEmbedUrl(ev.location, ev.maps_url);
-  const linkUrl = mapsLinkUrl(ev.location, ev.maps_url);
-
   document.getElementById('map-panel-title').textContent = ev.title;
   document.getElementById('map-panel-subtitle').textContent = ev.location;
-  document.getElementById('map-iframe').src = embedUrl;
-  document.getElementById('map-open-btn').href = linkUrl;
+  document.getElementById('map-iframe').src = mapsEmbedUrl(ev.location, ev.maps_url);
+  document.getElementById('map-open-btn').href = mapsLinkUrl(ev.location, ev.maps_url);
   document.getElementById('map-panel').classList.remove('hidden');
 }
-
 function openMapForDay() {
   if (!S.day) return;
   const dayEvents = S.events.filter(e => e.day_id === S.day.id && e.location)
     .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-
   if (dayEvents.length === 0) { toast('此天沒有設定地點的行程'); return; }
-  if (dayEvents.length === 1) {
-    openMap(dayEvents[0].id);
-    return;
-  }
-
-  // Multi-location day route
+  if (dayEvents.length === 1) { openMap(dayEvents[0].id); return; }
   const locations = dayEvents.map(e => encodeURIComponent(e.location));
   const routeUrl = `https://www.google.com/maps/dir/${locations.join('/')}`;
-  const firstEmbed = mapsEmbedUrl(dayEvents[0].location, dayEvents[0].maps_url);
-
   document.getElementById('map-panel-title').textContent = `Day ${S.day.day_number} 路線圖`;
   document.getElementById('map-panel-subtitle').textContent = dayEvents.map(e => e.location).join(' → ');
-  document.getElementById('map-iframe').src = firstEmbed;
+  document.getElementById('map-iframe').src = mapsEmbedUrl(dayEvents[0].location, dayEvents[0].maps_url);
   document.getElementById('map-open-btn').href = routeUrl;
   document.getElementById('map-panel').classList.remove('hidden');
 }
-
 function openDayRoute() {
   if (!S.day) return;
   const dayEvents = S.events.filter(e => e.day_id === S.day.id && e.location)
@@ -1255,10 +1962,18 @@ function openDayRoute() {
   const locations = dayEvents.map(e => encodeURIComponent(e.location));
   window.open(`https://www.google.com/maps/dir/${locations.join('/')}`, '_blank');
 }
+function closeMapPanel() { document.getElementById('map-panel').classList.add('hidden'); document.getElementById('map-iframe').src = ''; }
 
-function closeMapPanel() {
-  document.getElementById('map-panel').classList.add('hidden');
-  document.getElementById('map-iframe').src = '';
+// ============================================================
+// MOBILE SIDEBAR
+// ============================================================
+function openMobileSidebar() {
+  document.getElementById('days-sidebar').classList.add('mobile-open');
+  document.getElementById('mobile-sidebar-overlay').classList.add('active');
+}
+function closeMobileSidebar() {
+  document.getElementById('days-sidebar').classList.remove('mobile-open');
+  document.getElementById('mobile-sidebar-overlay').classList.remove('active');
 }
 
 // ============================================================
@@ -1268,77 +1983,59 @@ function subscribeToTrip(tripId) {
   S.channels.forEach(c => sb.removeChannel(c));
   S.channels = [];
 
-  // Events
   const evCh = sb.channel(`events-${tripId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `trip_id=eq.${tripId}` },
-      payload => {
-        handleChange(payload, S.events, 'id');
-        if (S.day) renderEvents();
-        showSyncFlash();
-        toast('行程已更新', 1500);
-      })
+      payload => { handleChange(payload, S.events, 'id'); if (S.day) renderEvents(); showSyncFlash(); })
     .subscribe();
 
-  // Days
   const dayCh = sb.channel(`days-${tripId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'days', filter: `trip_id=eq.${tripId}` },
       payload => {
         handleChange(payload, S.days, 'id');
         S.days.sort((a, b) => a.date.localeCompare(b.date));
         S.days.forEach((d, i) => d.day_number = i + 1);
-        renderDaysSidebar();
-        showSyncFlash();
+        renderDaysSidebar(); showSyncFlash();
       })
     .subscribe();
 
-  // Credentials
   const credCh = sb.channel(`creds-${tripId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'credentials', filter: `trip_id=eq.${tripId}` },
-      payload => {
-        handleChange(payload, S.credentials, 'id');
-        renderEvents();
-        showSyncFlash();
-      })
+      payload => { handleChange(payload, S.credentials, 'id'); renderEvents(); showSyncFlash(); })
     .subscribe();
 
-  // Presence
+  const expCh = sb.channel(`expenses-${tripId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `trip_id=eq.${tripId}` },
+      payload => { handleChange(payload, S.expenses, 'id'); showSyncFlash(); })
+    .subscribe();
+
+  const checkCh = sb.channel(`checklist-${tripId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_items', filter: `trip_id=eq.${tripId}` },
+      payload => { handleChange(payload, S.checklist, 'id'); showSyncFlash(); })
+    .subscribe();
+
   const presenceCh = sb.channel(`presence-${tripId}`, { config: { presence: { key: S.userName } } })
-    .on('presence', { event: 'sync' }, () => {
-      S.onlineUsers = presenceCh.presenceState();
-      renderOnlineUsers();
-    })
+    .on('presence', { event: 'sync' }, () => { S.onlineUsers = presenceCh.presenceState(); renderOnlineUsers(); })
     .subscribe(async status => {
       if (status === 'SUBSCRIBED') {
-        await presenceCh.track({
-          userName: S.userName,
-          userColor: S.userColor,
-          userEmoji: S.userEmoji,
-          online_at: Date.now(),
-        });
+        await presenceCh.track({ userName: S.userName, userColor: S.userColor, userEmoji: S.userEmoji, online_at: Date.now() });
       }
     });
 
-  S.channels = [evCh, dayCh, credCh, presenceCh];
+  S.channels = [evCh, dayCh, credCh, expCh, checkCh, presenceCh];
 }
 
 function handleChange(payload, arr, key) {
   const { eventType, new: n, old: o } = payload;
-  if (eventType === 'INSERT' && n) {
-    if (!arr.find(x => x[key] === n[key])) arr.push(n);
-  } else if (eventType === 'UPDATE' && n) {
-    const idx = arr.findIndex(x => x[key] === n[key]);
-    if (idx !== -1) arr[idx] = n; else arr.push(n);
-  } else if (eventType === 'DELETE' && o) {
-    const idx = arr.findIndex(x => x[key] === o[key]);
-    if (idx !== -1) arr.splice(idx, 1);
-  }
+  if (eventType === 'INSERT' && n) { if (!arr.find(x => x[key] === n[key])) arr.push(n); }
+  else if (eventType === 'UPDATE' && n) { const idx = arr.findIndex(x => x[key] === n[key]); if (idx !== -1) arr[idx] = n; else arr.push(n); }
+  else if (eventType === 'DELETE' && o) { const idx = arr.findIndex(x => x[key] === o[key]); if (idx !== -1) arr.splice(idx, 1); }
 }
 
 function renderOnlineUsers() {
   const container = document.getElementById('online-users');
   const users = Object.values(S.onlineUsers).flat();
   container.innerHTML = users.slice(0, 5).map(u => `
-    <div title="${u.userName}" style="background:${u.userColor}"
+    <div title="${esc(u.userName)}" style="background:${u.userColor}"
       class="w-7 h-7 rounded-full flex items-center justify-center text-xs border-2 border-white/50 font-medium text-white">
       ${u.userEmoji || u.userName.charAt(0)}
     </div>`).join('');
@@ -1346,6 +2043,18 @@ function renderOnlineUsers() {
     container.innerHTML += `<div class="w-7 h-7 rounded-full bg-gray-400 flex items-center justify-center text-xs text-white border-2 border-white/50">+${users.length - 5}</div>`;
   }
 }
+
+// ============================================================
+// DRAG DROP on QR upload area
+// ============================================================
+const qrArea = document.getElementById('qr-upload-area');
+qrArea.addEventListener('dragover', e => { e.preventDefault(); qrArea.classList.add('border-indigo-500'); });
+qrArea.addEventListener('dragleave', () => qrArea.classList.remove('border-indigo-500'));
+qrArea.addEventListener('drop', e => {
+  e.preventDefault(); qrArea.classList.remove('border-indigo-500');
+  const file = e.dataTransfer.files[0];
+  if (file) { document.getElementById('qr-file-input').files = e.dataTransfer.files; handleQRFileSelect({ target: { files: [file] } }); }
+});
 
 // ============================================================
 // START
