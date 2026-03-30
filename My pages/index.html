@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>旅遊行程規劃</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,12 +14,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;-webkit-text-size-adjust:100%}
-    :root{--vh:1vh}
-    .h-screen-safe{height:100vh;height:100dvh;height:calc(var(--vh,1vh)*100)}
-    /* iOS Safari flex fix: flex:1 1 0% fails without explicit parent height; height:0 + flex-grow forces correct shrink */
-    .ios-flex-fill{-webkit-box-flex:1!important;flex-grow:1!important;flex-shrink:1!important;flex-basis:0px!important;height:0!important;min-height:0!important}
-    .ios-scroll{-webkit-overflow-scrolling:touch;overflow-y:auto!important;overscroll-behavior:contain}
+    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif}
     .timeline-container{position:relative;padding-left:44px}
     .timeline-line{position:absolute;left:18px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#6366f1,#14b8a6)}
     .event-dot{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px currentColor}
@@ -27,8 +22,8 @@
     .slide-right{animation:slideRight .3s ease-out}@keyframes slideRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
     ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
     .pulse{animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem;-webkit-overflow-scrolling:touch}
-    .modal{background:white;border-radius:1rem;padding:1.5rem;width:100%;max-width:500px;max-height:90vh;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+    .modal{background:white;border-radius:1rem;padding:1.5rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
     .type-flight{color:#3b82f6}.type-hotel{color:#8b5cf6}.type-meal{color:#f97316}.type-activity{color:#22c55e}.type-transport{color:#64748b}.type-shopping{color:#ec4899}.type-other{color:#14b8a6}
     .bg-type-flight{background:#eff6ff;border-left:3px solid #3b82f6}.bg-type-hotel{background:#f5f3ff;border-left:3px solid #8b5cf6}.bg-type-meal{background:#fff7ed;border-left:3px solid #f97316}.bg-type-activity{background:#f0fdf4;border-left:3px solid #22c55e}.bg-type-transport{background:#f8fafc;border-left:3px solid #64748b}.bg-type-shopping{background:#fdf2f8;border-left:3px solid #ec4899}.bg-type-other{background:#f0fdfa;border-left:3px solid #14b8a6}
     .day-tab{transition:all .2s}.day-tab.active{background:#6366f1;color:white}.day-tab:not(.active):hover{background:#e0e7ff}
@@ -38,7 +33,7 @@
     .drag-handle{cursor:grab}.drag-handle:active{cursor:grabbing}
     .qr-preview{max-width:200px;max-height:200px;object-fit:contain;border-radius:.5rem;border:1px solid #e5e7eb}
     .check-done{text-decoration:line-through;color:#9ca3af}
-    .drawer-right{position:fixed;inset-y:0;right:0;width:100%;max-width:28rem;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:40;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
+    .drawer-right{position:fixed;inset-y:0;right:0;width:100%;max-width:28rem;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:40;display:flex;flex-direction:column}
     .locked-badge{background:#fef3c7;color:#92400e;font-size:10px;padding:2px 6px;border-radius:9999px;display:inline-flex;align-items:center;gap:3px}
     .transit-badge{background:#f0f9ff;border:1px dashed #93c5fd;border-radius:.5rem;padding:4px 12px;margin:2px 0 2px 48px;font-size:11px;color:#3b82f6;display:flex;align-items:center;gap:6px}
     .weather-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:9999px;background:#f0f9ff;color:#0369a1}
@@ -47,9 +42,9 @@
     .photo-grid img:hover{transform:scale(1.05)}
     #world-map{height:300px;border-radius:1rem;z-index:0}
     @media(max-width:768px){
-      .desktop-sidebar{display:none}.desktop-sidebar.mobile-open{display:flex;position:fixed;top:0;left:0;bottom:0;z-index:45;width:100%;max-width:280px;box-shadow:0 0 40px rgba(0,0,0,.3);-webkit-overflow-scrolling:touch;height:100%;height:100dvh}
+      .desktop-sidebar{display:none}.desktop-sidebar.mobile-open{display:flex;position:fixed;inset:0;z-index:45;width:100%;max-width:280px;box-shadow:0 0 40px rgba(0,0,0,.3)}
       .mobile-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:44}.mobile-sidebar-overlay.active{display:block}
-      .mobile-bottom-bar{display:flex!important;padding-bottom:env(safe-area-inset-bottom,0)}.trip-body-main{padding-bottom:calc(60px + env(safe-area-inset-bottom,0))}
+      .mobile-bottom-bar{display:flex!important}.trip-body-main{padding-bottom:60px}
       .modal{max-width:95vw;padding:1rem}#map-iframe{height:220px}.hide-mobile{display:none!important}
       .drawer-right{max-width:100%}#world-map{height:200px}
     }
@@ -540,7 +535,7 @@
 </div>
 
 <!-- ===== TRIP VIEW ===== -->
-<div id="trip-view" class="hidden h-screen-safe flex flex-col" style="overflow:hidden;position:relative">
+<div id="trip-view" class="hidden h-screen flex flex-col">
   <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 text-white px-4 py-3 flex items-center gap-2 shrink-0 flex-wrap">
     <button onclick="goHome()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i class="fas fa-arrow-left"></i></button>
     <button onclick="openMobileSidebar()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition show-mobile-only"><i class="fas fa-calendar-alt"></i></button>
@@ -577,8 +572,8 @@
   <!-- Weather Bar -->
   <div id="weather-bar" class="hidden bg-gradient-to-r from-sky-50 to-blue-50 px-4 py-2 border-b flex items-center gap-3 overflow-x-auto shrink-0"></div>
 
-  <div class="flex relative ios-flex-fill" id="trip-body" style="overflow:hidden">
-    <div class="desktop-sidebar w-48 lg:w-56 border-r bg-white flex flex-col shrink-0" id="days-sidebar" style="-webkit-overflow-scrolling:touch">
+  <div class="flex flex-1 min-h-0 relative" id="trip-body">
+    <div class="desktop-sidebar w-48 lg:w-56 border-r bg-white flex flex-col shrink-0" id="days-sidebar">
       <div class="p-3 border-b flex items-center justify-between">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide" data-i18n="days">天數</span>
         <div class="flex items-center gap-1">
@@ -586,11 +581,11 @@
           <button onclick="closeMobileSidebar()" class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 show-mobile-only"><i class="fas fa-times text-xs"></i></button>
         </div>
       </div>
-      <div id="days-list" class="p-2 space-y-1 ios-flex-fill ios-scroll"></div>
+      <div id="days-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
       <div id="days-empty" class="hidden flex-1 flex flex-col items-center justify-center p-4 text-center"><div class="text-3xl mb-2">📅</div><p class="text-xs text-gray-400" data-i18n="addDayHint">點擊 + 新增天數</p></div>
     </div>
     <button id="sidebar-toggle-btn" class="sidebar-toggle" onclick="toggleSidebar()" title="收合/展開"><i class="fas fa-chevron-left"></i></button>
-    <div class="flex flex-col min-w-0 trip-body-main ios-flex-fill">
+    <div class="flex-1 flex flex-col min-w-0 trip-body-main">
       <div id="day-header" class="hidden border-b bg-white px-4 py-3 flex items-center justify-between shrink-0 flex-wrap gap-2">
         <div class="min-w-0"><h3 class="font-semibold text-sm sm:text-base" id="day-title-display"></h3><p class="text-xs text-gray-400" id="day-notes-display"></p></div>
         <div class="flex gap-2 flex-wrap">
@@ -599,11 +594,11 @@
           <button onclick="editCurrentDay()" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"><i class="fas fa-ellipsis-v text-xs"></i></button>
         </div>
       </div>
-      <div id="no-day-selected" class="flex flex-col items-center justify-center text-center p-8 ios-flex-fill">
+      <div id="no-day-selected" class="flex-1 flex flex-col items-center justify-center text-center p-8">
         <div class="text-5xl mb-4">📅</div>
         <h3 class="text-lg font-semibold text-gray-600 mb-2" data-i18n="selectDay">選擇或新增天數</h3>
       </div>
-      <div id="events-container" class="hidden p-4 ios-flex-fill ios-scroll">
+      <div id="events-container" class="hidden flex-1 overflow-y-auto p-4">
         <div id="events-loading" class="text-center py-8 text-gray-400 hidden"><i class="fas fa-spinner fa-spin"></i></div>
         <div id="events-empty" class="hidden text-center py-12"><div class="text-4xl mb-3">📌</div><p class="text-gray-400 text-sm" data-i18n="noEvents">還沒有行程</p></div>
         <div id="events-list" class="timeline-container space-y-3"><div class="timeline-line"></div></div>
@@ -626,11 +621,6 @@
 <div id="export-content" class="hidden" style="position:absolute;left:-9999px;top:0;width:800px"></div>
 
 <script>
-// ============================================================
-// iOS VIEWPORT HEIGHT FIX (must run before any UI)
-// ============================================================
-(function(){var vh=window.innerHeight*0.01;document.documentElement.style.setProperty('--vh',vh+'px');window.addEventListener('resize',function(){document.documentElement.style.setProperty('--vh',window.innerHeight*0.01+'px')});window.addEventListener('orientationchange',function(){setTimeout(function(){document.documentElement.style.setProperty('--vh',window.innerHeight*0.01+'px')},150)})})();
-
 // ============================================================
 // I18N TRANSLATIONS
 // ============================================================
@@ -991,11 +981,7 @@ async function deleteTripConfirm(id,title){
 async function openTrip(tripId){
   S.trip=S.trips.find(t=>t.id===tripId);if(!S.trip)return;
   S.day=null;S.days=[];S.events=[];S.credentials=[];S.expenses=[];S.checklist=[];S.photos=[];
-  $('home-view').classList.add('hidden');
-  const tv=$('trip-view');tv.classList.remove('hidden');
-  // iOS Safari: force layout recalc after unhiding flex container
-  tv.offsetHeight;
-  S.view='trip';
+  $('home-view').classList.add('hidden');$('trip-view').classList.remove('hidden');S.view='trip';
   renderTripHeader();renderDaysSidebar();showNoDaySelected();updateLockUI();
   await Promise.all([loadDays(),loadCredentials(),loadExpenses(),loadChecklist(),loadPhotos()]);
   renderDaysSidebar();loadWeather();subscribeToTrip(tripId);
@@ -1059,13 +1045,10 @@ function renderDaysSidebar(){
 function showNoDaySelected(){$('no-day-selected').classList.remove('hidden');$('day-header').classList.add('hidden');$('events-container').classList.add('hidden')}
 async function selectDay(dayId){
   S.day=S.days.find(d=>d.id===dayId);if(!S.day)return;renderDaysSidebar();
-  $('no-day-selected').classList.add('hidden');$('day-header').classList.remove('hidden');
-  const ec=$('events-container');ec.classList.remove('hidden');
+  $('no-day-selected').classList.add('hidden');$('day-header').classList.remove('hidden');$('events-container').classList.remove('hidden');
   $('day-title-display').textContent=`Day ${S.day.day_number} — ${formatDate(S.day.date)}${S.day.title?' · '+S.day.title:''}`;
   $('day-notes-display').textContent=S.day.notes||'';
   await loadEvents();renderEvents();closeMobileSidebar();
-  // iOS Safari: force layout recalc after all DOM changes so scroll area gets correct height
-  requestAnimationFrame(()=>{ec.offsetHeight;ec.scrollTop=ec.scrollTop});
 }
 function editCurrentDay(){if(S.day)openDayModal(S.day)}
 
