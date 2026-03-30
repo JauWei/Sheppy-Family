@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>旅遊行程規劃</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,7 +14,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif}
+    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;-webkit-text-size-adjust:100%}
     .timeline-container{position:relative;padding-left:44px}
     .timeline-line{position:absolute;left:18px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#6366f1,#14b8a6)}
     .event-dot{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px currentColor}
@@ -22,8 +22,8 @@
     .slide-right{animation:slideRight .3s ease-out}@keyframes slideRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
     ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
     .pulse{animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
-    .modal{background:white;border-radius:1rem;padding:1.5rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem;-webkit-overflow-scrolling:touch}
+    .modal{background:white;border-radius:1rem;padding:1.5rem;width:100%;max-width:500px;max-height:90vh;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}
     .type-flight{color:#3b82f6}.type-hotel{color:#8b5cf6}.type-meal{color:#f97316}.type-activity{color:#22c55e}.type-transport{color:#64748b}.type-shopping{color:#ec4899}.type-other{color:#14b8a6}
     .bg-type-flight{background:#eff6ff;border-left:3px solid #3b82f6}.bg-type-hotel{background:#f5f3ff;border-left:3px solid #8b5cf6}.bg-type-meal{background:#fff7ed;border-left:3px solid #f97316}.bg-type-activity{background:#f0fdf4;border-left:3px solid #22c55e}.bg-type-transport{background:#f8fafc;border-left:3px solid #64748b}.bg-type-shopping{background:#fdf2f8;border-left:3px solid #ec4899}.bg-type-other{background:#f0fdfa;border-left:3px solid #14b8a6}
     .day-tab{transition:all .2s}.day-tab.active{background:#6366f1;color:white}.day-tab:not(.active):hover{background:#e0e7ff}
@@ -33,7 +33,7 @@
     .drag-handle{cursor:grab}.drag-handle:active{cursor:grabbing}
     .qr-preview{max-width:200px;max-height:200px;object-fit:contain;border-radius:.5rem;border:1px solid #e5e7eb}
     .check-done{text-decoration:line-through;color:#9ca3af}
-    .drawer-right{position:fixed;inset-y:0;right:0;width:100%;max-width:28rem;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:40;display:flex;flex-direction:column}
+    .drawer-right{position:fixed;inset-y:0;right:0;width:100%;max-width:28rem;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:40;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
     .locked-badge{background:#fef3c7;color:#92400e;font-size:10px;padding:2px 6px;border-radius:9999px;display:inline-flex;align-items:center;gap:3px}
     .transit-badge{background:#f0f9ff;border:1px dashed #93c5fd;border-radius:.5rem;padding:4px 12px;margin:2px 0 2px 48px;font-size:11px;color:#3b82f6;display:flex;align-items:center;gap:6px}
     .weather-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:9999px;background:#f0f9ff;color:#0369a1}
@@ -42,18 +42,31 @@
     .photo-grid img:hover{transform:scale(1.05)}
     #world-map{height:300px;border-radius:1rem;z-index:0}
     @media(max-width:768px){
-      .desktop-sidebar{display:none}.desktop-sidebar.mobile-open{display:flex;position:fixed;inset:0;z-index:45;width:100%;max-width:280px;box-shadow:0 0 40px rgba(0,0,0,.3)}
+      /* Mobile: abandon flex height chain, use natural page scroll instead */
+      #trip-view{height:auto!important;overflow:visible!important;display:block!important;position:static!important}
+      #trip-view.hidden{display:none!important}
+      #trip-view>.bg-gradient-to-r{position:sticky;top:0;z-index:20}
+      #trip-body{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important;position:static!important}
+      .trip-body-main{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important;padding-bottom:calc(60px + env(safe-area-inset-bottom,0))}
+      #events-container{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
+      #events-container.hidden{display:none!important}
+      #no-day-selected{height:auto!important;min-height:40vh}
+      #no-day-selected.hidden{display:none!important}
+      #day-header{display:flex!important;position:sticky;top:52px;z-index:15;background:white}
+      #day-header.hidden{display:none!important}
+      .desktop-sidebar{display:none}.desktop-sidebar.mobile-open{display:flex;position:fixed;top:0;left:0;bottom:0;z-index:45;width:100%;max-width:280px;box-shadow:0 0 40px rgba(0,0,0,.3);-webkit-overflow-scrolling:touch;height:100vh;height:100dvh}
       .mobile-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:44}.mobile-sidebar-overlay.active{display:block}
-      .mobile-bottom-bar{display:flex!important}.trip-body-main{padding-bottom:60px}
+      .mobile-bottom-bar{display:flex!important;padding-bottom:env(safe-area-inset-bottom,0)}
       .modal{max-width:95vw;padding:1rem}#map-iframe{height:220px}.hide-mobile{display:none!important}
       .drawer-right{max-width:100%}#world-map{height:200px}
+      .sidebar-toggle{display:none!important}
     }
     @media(min-width:769px){.mobile-bottom-bar{display:none!important}.mobile-sidebar-overlay{display:none!important}.show-mobile-only{display:none!important}}
     .sidebar-collapsed #days-sidebar{width:0;min-width:0;overflow:hidden;border:none;padding:0;opacity:0;pointer-events:none;transition:all .25s ease}
     #days-sidebar{transition:all .25s ease}
     .sidebar-toggle{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:10;width:20px;height:48px;background:#6366f1;color:white;border:none;border-radius:0 6px 6px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;opacity:.7;transition:opacity .2s}
     .sidebar-toggle:hover{opacity:1}
-    @media(max-width:768px){.sidebar-toggle{top:auto;bottom:70px;left:4px;width:32px;height:32px;border-radius:50%;opacity:.85;font-size:12px}}
+    @media(max-width:768px){.sidebar-toggle{display:none!important}}
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -535,7 +548,7 @@
 </div>
 
 <!-- ===== TRIP VIEW ===== -->
-<div id="trip-view" class="hidden h-screen flex flex-col">
+<div id="trip-view" class="hidden h-screen flex flex-col" style="overflow:hidden">
   <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 text-white px-4 py-3 flex items-center gap-2 shrink-0 flex-wrap">
     <button onclick="goHome()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i class="fas fa-arrow-left"></i></button>
     <button onclick="openMobileSidebar()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition show-mobile-only"><i class="fas fa-calendar-alt"></i></button>
@@ -572,7 +585,7 @@
   <!-- Weather Bar -->
   <div id="weather-bar" class="hidden bg-gradient-to-r from-sky-50 to-blue-50 px-4 py-2 border-b flex items-center gap-3 overflow-x-auto shrink-0"></div>
 
-  <div class="flex flex-1 min-h-0 relative" id="trip-body">
+  <div class="flex flex-1 min-h-0 relative" id="trip-body" style="overflow:hidden">
     <div class="desktop-sidebar w-48 lg:w-56 border-r bg-white flex flex-col shrink-0" id="days-sidebar">
       <div class="p-3 border-b flex items-center justify-between">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide" data-i18n="days">天數</span>
@@ -982,7 +995,7 @@ async function openTrip(tripId){
   S.trip=S.trips.find(t=>t.id===tripId);if(!S.trip)return;
   S.day=null;S.days=[];S.events=[];S.credentials=[];S.expenses=[];S.checklist=[];S.photos=[];
   $('home-view').classList.add('hidden');$('trip-view').classList.remove('hidden');S.view='trip';
-  renderTripHeader();renderDaysSidebar();showNoDaySelected();updateLockUI();
+  window.scrollTo(0,0);renderTripHeader();renderDaysSidebar();showNoDaySelected();updateLockUI();
   await Promise.all([loadDays(),loadCredentials(),loadExpenses(),loadChecklist(),loadPhotos()]);
   renderDaysSidebar();loadWeather();subscribeToTrip(tripId);
 }
@@ -990,7 +1003,7 @@ function goHome(){
   S.channels.forEach(c=>sb.removeChannel(c));S.channels=[];S.onlineUsers={};S.view='home';
   if(S.sortableInstance){S.sortableInstance.destroy();S.sortableInstance=null}
   $('trip-view').classList.add('hidden');$('home-view').classList.remove('hidden');$('weather-bar').classList.add('hidden');
-  loadTrips();
+  window.scrollTo(0,0);loadTrips();
 }
 function renderTripHeader(){
   const tp=S.trip;$('trip-title-display').textContent=`${tp.emoji||'✈️'} ${tp.title}`;
@@ -1049,6 +1062,8 @@ async function selectDay(dayId){
   $('day-title-display').textContent=`Day ${S.day.day_number} — ${formatDate(S.day.date)}${S.day.title?' · '+S.day.title:''}`;
   $('day-notes-display').textContent=S.day.notes||'';
   await loadEvents();renderEvents();closeMobileSidebar();
+  // iOS: scroll to top of events after selecting day
+  if(window.innerWidth<=768)window.scrollTo({top:$('day-header').offsetTop-52,behavior:'smooth'});
 }
 function editCurrentDay(){if(S.day)openDayModal(S.day)}
 
