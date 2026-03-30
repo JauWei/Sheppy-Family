@@ -20,7 +20,7 @@
     overflow-x: hidden;
   }
 
-  /* 頂部區域 */
+  /* 頁頭區塊 */
   .header {
     text-align: center;
     padding: 40px 20px 20px;
@@ -41,7 +41,7 @@
     margin-top: 4px;
   }
 
-  /* 同步狀態指示器 */
+  /* 同步狀態提示器 */
   .sync-indicator {
     position: fixed;
     bottom: 16px;
@@ -123,6 +123,12 @@
     z-index: 50;
     transition: none;
     cursor: grabbing;
+  }
+  .link-card.drag-over-trash {
+    opacity: 0.4;
+    filter: grayscale(1) brightness(0.6);
+    transform: scale(0.9);
+    transition: opacity 0.2s, filter 0.2s, transform 0.2s;
   }
 
   .link-card .card-img-wrap {
@@ -226,6 +232,51 @@
     background: rgba(255,255,255,0.04);
   }
   .add-card:hover { border-color: rgba(255,255,255,0.6); color: rgba(255,255,255,0.7); }
+
+  /* ========== 垃圾桶 ========== */
+  .trash-bin {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.7);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(231, 76, 60, 0.12);
+    border: 3px dashed rgba(231, 76, 60, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .trash-bin.visible {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  .trash-bin.over {
+    background: rgba(231, 76, 60, 0.55);
+    border-color: rgba(231, 76, 60, 1);
+    box-shadow: 0 0 24px rgba(231, 76, 60, 0.5);
+    transform: translateX(-50%) scale(1.2);
+  }
+  .trash-hint {
+    position: fixed;
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.45);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    white-space: nowrap;
+  }
+  .trash-hint.visible { opacity: 1; }
 
   /* 彈窗 */
   .modal-overlay {
@@ -740,7 +791,7 @@
   }
   .emoji-cell:hover { background: rgba(255,255,255,0.12); }
 
-  /* 照片燈箱 */
+  /* 燈箱 */
   .lightbox {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.85); z-index: 300;
@@ -842,6 +893,8 @@
     .emoji-cell { font-size: 18px; }
     .emoji-tab { padding: 6px 8px; font-size: 14px; }
     .lightbox img { max-width: 96vw; max-height: 80vh; border-radius: 4px; }
+    .trash-bin { display: none !important; }
+    .trash-hint { display: none !important; }
   }
 
   @media (max-width: 360px) {
@@ -880,10 +933,10 @@
 <div class="sync-indicator hidden" id="syncIndicator"></div>
 
 <div class="toolbar">
-  <button onclick="toggleMsgBoard()" title="留言板">✉</button>
+  <button onclick="toggleMsgBoard()" title="留言板">💬</button>
   <button onclick="autoArrange()" title="自動排列">⊞</button>
   <button onclick="openTitleModal()" title="標題設定">T</button>
-  <button onclick="openBgModal()" title="更換背景">⚙</button>
+  <button onclick="openBgModal()" title="更換背景">🖼</button>
 </div>
 
 <div class="header">
@@ -892,6 +945,10 @@
 </div>
 
 <div class="links-container" id="linksContainer"></div>
+
+<!-- 垃圾桶（拖曳刪除用） -->
+<div class="trash-bin" id="trashBin">🗑️</div>
+<div class="trash-hint" id="trashHint">拖曳到此處刪除連結</div>
 
 <!-- 背景設定彈窗 -->
 <div class="modal-overlay" id="bgModal">
@@ -993,7 +1050,7 @@
       <div class="border-opt" data-border="double">雙線</div>
       <div class="border-opt" data-border="gold">金框</div>
       <div class="border-opt" data-border="rainbow">彩虹</div>
-      <div class="border-opt" data-border="glow">螢光</div>
+      <div class="border-opt" data-border="glow">發光</div>
       <div class="border-opt" data-border="shadow">陰影</div>
     </div>
 
@@ -1014,7 +1071,7 @@
 <!-- 留言板面板 -->
 <div class="msgboard-panel" id="msgPanel">
   <div class="msgboard-header">
-    <h2>心情留言板</h2>
+    <h2>家庭留言板</h2>
     <button class="msgboard-close" onclick="toggleMsgBoard()">✕</button>
   </div>
   <div class="members-bar" id="membersBar"></div>
@@ -1051,8 +1108,8 @@
     <div class="compose-send-row">
       <div class="mood-select" id="moodSelect">
         <div class="mood-opt selected" data-mood="default" title="一般">💬</div>
-        <div class="mood-opt" data-mood="happy" title="開心">😄</div>
-        <div class="mood-opt" data-mood="love" title="喜愛">❤️</div>
+        <div class="mood-opt" data-mood="happy" title="開心">😊</div>
+        <div class="mood-opt" data-mood="love" title="愛心">❤️</div>
         <div class="mood-opt" data-mood="sad" title="難過">😢</div>
         <div class="mood-opt" data-mood="angry" title="生氣">😡</div>
         <div class="mood-opt" data-mood="excited" title="興奮">🎉</div>
@@ -1062,7 +1119,7 @@
   </div>
 </div>
 
-<!-- 照片燈箱 -->
+<!-- 燈箱 -->
 <div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
   <img id="lightboxImg">
 </div>
@@ -1071,14 +1128,14 @@
 // ================================================================
 //  Supabase 設定 — 請填入你自己的值
 // ================================================================
-const SUPABASE_URL = 'https://bpvybuvjbdfgrjgwiqkb.supabase.co';       // 例如: https://xxxxx.supabase.co
+const SUPABASE_URL = 'https://bpvybuvjbdfgrjgwiqkb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QTmYQiv9MhpsYzlEhWsVOg_38OXHLMF';
-const STORAGE_BUCKET = 'family-photos';          // Supabase Storage bucket 名稱
+const STORAGE_BUCKET = 'family-photos';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ================================================================
-//  同步狀態指示器
+//  同步狀態提示器
 // ================================================================
 function showSync(type, text) {
   const el = document.getElementById('syncIndicator');
@@ -1093,16 +1150,11 @@ function showSync(type, text) {
 async function uploadImage(file, folder) {
   const ext = file.name.split('.').pop();
   const filename = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
-
-  // 壓縮圖片（限制最大 800px 寬度）
   const compressed = await compressImage(file, 800, 0.8);
-
   const { data, error } = await sb.storage
     .from(STORAGE_BUCKET)
     .upload(filename, compressed, { contentType: compressed.type, upsert: false });
-
   if (error) throw error;
-
   const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
   return urlData.publicUrl;
 }
@@ -1114,8 +1166,7 @@ function compressImage(file, maxWidth, quality) {
       const canvas = document.createElement('canvas');
       let w = img.width, h = img.height;
       if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       canvas.toBlob(blob => resolve(blob), 'image/webp', quality);
     };
@@ -1132,16 +1183,13 @@ async function deleteStorageFile(publicUrl) {
 }
 
 // ================================================================
-//  資料管理 — 全部透過 Supabase
+//  資料管理 — 全部經由 Supabase
 // ================================================================
-
-// 本地快取
 let appSettings = { bg_image: '', title_text: '我的家庭首頁', title_font: "'Microsoft JhengHei', sans-serif", title_size: 40, title_color: '#ffffff', grid_mode: false };
 let appLinks = [];
 let appMembers = [];
 let appMessages = [];
 
-// --- 載入全部資料 ---
 async function loadAllData() {
   showSync('syncing', '同步中...');
   try {
@@ -1151,17 +1199,13 @@ async function loadAllData() {
       sb.from('members').select('*').order('created_at', { ascending: true }),
       sb.from('messages').select('*').order('created_at', { ascending: false }),
     ]);
-
     if (settingsRes.data) appSettings = settingsRes.data;
     if (linksRes.data) appLinks = linksRes.data;
     if (membersRes.data) appMembers = membersRes.data;
     if (messagesRes.data) appMessages = messagesRes.data;
-
-    // 如果 settings 不存在，建立預設
     if (!settingsRes.data && !settingsRes.error?.code === 'PGRST116') {
       await sb.from('settings').insert([{ id: 1, ...appSettings }]);
     }
-
     showSync('synced', '已同步 ✓');
   } catch (e) {
     console.error('載入資料失敗:', e);
@@ -1169,7 +1213,6 @@ async function loadAllData() {
   }
 }
 
-// --- Settings ---
 async function updateSettings(changes) {
   Object.assign(appSettings, changes);
   showSync('syncing', '儲存中...');
@@ -1178,7 +1221,6 @@ async function updateSettings(changes) {
   else showSync('synced', '已同步 ✓');
 }
 
-// --- Links CRUD ---
 async function addLink(linkData) {
   showSync('syncing', '儲存中...');
   const sortOrder = appLinks.length > 0 ? Math.max(...appLinks.map(l => l.sort_order || 0)) + 1 : 0;
@@ -1210,7 +1252,6 @@ async function removeLinkById(id) {
   renderLinks();
 }
 
-// --- Members CRUD ---
 async function addMemberToDb(name) {
   const { data, error } = await sb.from('members').insert([{ name }]).select().single();
   if (error) { console.error(error); return; }
@@ -1227,7 +1268,6 @@ async function removeMemberFromDb(id) {
   populateMemberSelects();
 }
 
-// --- Messages CRUD ---
 async function addMessage(msgData) {
   showSync('syncing', '送出中...');
   const { data, error } = await sb.from('messages').insert([msgData]).select().single();
@@ -1259,28 +1299,23 @@ async function deleteMessageById(id) {
 // ================================================================
 function setupRealtime() {
   const channel = sb.channel('family-home-sync');
-
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
     if (payload.new) { appSettings = payload.new; applyBg(); applyTitle(); }
   });
-
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'links' }, async () => {
     const { data } = await sb.from('links').select('*').order('sort_order', { ascending: true });
     if (data) { appLinks = data; renderLinks(); }
     showSync('synced', '即時更新 ✓');
   });
-
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, async () => {
     const { data } = await sb.from('members').select('*').order('created_at', { ascending: true });
     if (data) { appMembers = data; renderMembers(); populateMemberSelects(); }
   });
-
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
     const { data } = await sb.from('messages').select('*').order('created_at', { ascending: false });
     if (data) { appMessages = data; renderMessages(); }
     showSync('synced', '即時更新 ✓');
   });
-
   channel.subscribe((status) => {
     if (status === 'SUBSCRIBED') console.log('Realtime 已連線');
   });
@@ -1369,13 +1404,10 @@ async function saveBg() {
   const fileInput = document.getElementById('bgFileInput');
   const urlInput = document.getElementById('bgUrlInput').value.trim();
   let bgUrl = urlInput;
-
   if (fileInput.files[0]) {
-    try {
-      bgUrl = await uploadImage(fileInput.files[0], 'backgrounds');
-    } catch (e) { alert('背景上傳失敗：' + e.message); return; }
+    try { bgUrl = await uploadImage(fileInput.files[0], 'backgrounds'); }
+    catch (e) { alert('背景上傳失敗：' + e.message); return; }
   }
-
   await updateSettings({ bg_image: bgUrl || '' });
   applyBg();
   closeModal('bgModal');
@@ -1388,14 +1420,41 @@ function resetBg() {
 }
 
 // ================================================================
-//  拖曳
+//  拖曳 & 垃圾桶刪除
 // ================================================================
 let dragState = null;
 let justDragged = false;
+let isOverTrash = false;
+
+function showTrashBin() {
+  document.getElementById('trashBin').classList.add('visible');
+  document.getElementById('trashHint').classList.add('visible');
+}
+
+function hideTrashBin() {
+  document.getElementById('trashBin').classList.remove('visible', 'over');
+  document.getElementById('trashHint').classList.remove('visible');
+  isOverTrash = false;
+}
+
+function checkTrashHover(clientX, clientY) {
+  const trashEl = document.getElementById('trashBin');
+  const rect = trashEl.getBoundingClientRect();
+  // 擴大偵測範圍（比視覺尺寸稍大）
+  const pad = 20;
+  const over = clientX >= rect.left - pad && clientX <= rect.right + pad &&
+               clientY >= rect.top - pad && clientY <= rect.bottom + pad;
+  if (over !== isOverTrash) {
+    isOverTrash = over;
+    trashEl.classList.toggle('over', over);
+    if (dragState && dragState.card) {
+      dragState.card.classList.toggle('drag-over-trash', over);
+    }
+  }
+}
 
 function onDragStart(e, index) {
   if (e.target.closest('.card-edit-btn')) return;
-  // 手機上強制 grid mode，不啟用拖曳，讓 click/tap 正常運作
   if (appSettings.grid_mode || isMobile()) return;
   e.preventDefault();
   const card = e.currentTarget;
@@ -1403,8 +1462,10 @@ function onDragStart(e, index) {
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
   justDragged = false;
+  isOverTrash = false;
   dragState = { index, card, offsetX: clientX - rect.left, offsetY: clientY - rect.top, startX: clientX, startY: clientY, moved: false };
   card.classList.add('dragging');
+  showTrashBin();
 }
 
 function onDragMove(e) {
@@ -1418,11 +1479,26 @@ function onDragMove(e) {
   let y = Math.max(0, clientY - cRect.top - dragState.offsetY);
   dragState.card.style.left = x + 'px';
   dragState.card.style.top = y + 'px';
+  checkTrashHover(clientX, clientY);
 }
 
-function onDragEnd() {
+async function onDragEnd() {
   if (!dragState) return;
-  dragState.card.classList.remove('dragging');
+  dragState.card.classList.remove('dragging', 'drag-over-trash');
+
+  if (isOverTrash && dragState.moved) {
+    // 放到垃圾桶 — 刪除連結
+    const link = appLinks[dragState.index];
+    hideTrashBin();
+    dragState = null;
+    if (link && confirm(`確定要刪除「${link.name}」嗎？`)) {
+      await removeLinkById(link.id);
+    } else {
+      renderLinks(); // 還原位置
+    }
+    return;
+  }
+
   if (dragState.moved) {
     justDragged = true;
     const link = appLinks[dragState.index];
@@ -1433,6 +1509,7 @@ function onDragEnd() {
     }
   }
   dragState = null;
+  hideTrashBin();
 }
 
 document.addEventListener('mousemove', onDragMove);
@@ -1491,7 +1568,7 @@ function renderLinks() {
 
     const editBtn = document.createElement('button');
     editBtn.className = 'card-edit-btn';
-    editBtn.innerHTML = '✎';
+    editBtn.innerHTML = '✏';
     editBtn.title = '編輯';
     editBtn.onclick = (e) => { e.stopPropagation(); openLinkModal(i); };
     wrap.appendChild(editBtn);
@@ -1507,11 +1584,9 @@ function renderLinks() {
     card.addEventListener('mousedown', (e) => onDragStart(e, i));
     card.addEventListener('touchstart', (e) => onDragStart(e, i), { passive: true });
 
-    // 手機上用 touchend 偵測 tap，桌面用 click
     card.addEventListener('touchend', (e) => {
       if (e.target.closest('.card-edit-btn')) return;
       if (justDragged) { justDragged = false; return; }
-      // 沒有拖曳過 → 視為點擊
       if (!dragState || !dragState.moved) {
         window.open(link.url, '_blank');
       }
@@ -1627,16 +1702,12 @@ async function saveLink() {
   if (!name || !url) { alert('請填寫名稱和連結網址'); return; }
 
   let imageUrl = imgUrlInput;
-
-  // 如果有選擇本地檔案，上傳到 Supabase Storage
   if (fileInput.files[0]) {
-    try {
-      imageUrl = await uploadImage(fileInput.files[0], 'link-icons');
-    } catch (e) { alert('圖片上傳失敗：' + e.message); return; }
+    try { imageUrl = await uploadImage(fileInput.files[0], 'link-icons'); }
+    catch (e) { alert('圖片上傳失敗：' + e.message); return; }
   }
 
   if (editingIndex === -1) {
-    // 新增
     let newX = 80, newY = 20;
     if (appLinks.length > 0) {
       const last = appLinks[appLinks.length - 1];
@@ -1677,7 +1748,6 @@ function toggleMsgBoard() {
   }
 }
 
-// --- 家庭成員 ---
 function renderMembers() {
   const bar = document.getElementById('membersBar');
   bar.innerHTML = '';
@@ -1717,7 +1787,6 @@ function populateMemberSelects() {
   });
 }
 
-// --- 篩選 ---
 document.getElementById('msgFilterFrom').addEventListener('change', renderMessages);
 document.getElementById('msgFilterTo').addEventListener('change', renderMessages);
 
@@ -1729,13 +1798,13 @@ function togglePinFilter() {
 
 // --- Emoji ---
 const emojiCategories = {
-  '😊 常用': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','😐','😑','😶','😏','😒','🙄','😬','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','🤬'],
-  '❤️ 愛心': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💑','💏','💋','🫶','🤲'],
-  '👋 手勢': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🙏','💪','🫶'],
-  '🐱 動物': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🐢','🐍','🐙','🦑','🦐','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊'],
-  '🍎 食物': ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🌽','🥕','🧄','🧅','🥔','🍠','🥜','🍞','🥐','🥖','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🧀','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🥗','🍱','🍣','🍜','🍝'],
-  '🎉 活動': ['🎉','🎊','🎈','🎁','🎄','🎃','🎗️','🎟️','🎫','🎖️','🏆','🏅','🥇','🥈','🥉','⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🏒','🥊','🎯','⛳','🎣','🎽','🎿','🎮','🕹️','🎲','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸'],
-  '🌈 自然': ['☀️','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','❄️','☃️','⛄','🌬️','💨','🌈','🌊','💧','💦','☔','🌸','💐','🌷','🌹','🌺','🌻','🌼','🍀','🍁','🍂','🍃','🌿','☘️','🌵','🌴','🌳','🌲','🏔️','⛰️','🏕️','🌅','🌄','🌠','🎇','🎆','🌃','🌉','🌌']
+  '😀 常用': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','🥰','😍','🤩','😘','😗','😚','😙','😋','🤪','😜','🤑','🤗','🤭','🤫','🤔','😐','😑','😶','😬','🙄','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','🤬'],
+  '❤️ 愛心': ['❤️','🧡','💛','💚','💙','💜','🤍','🤎','🖤','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☯️','🕉️','✡️','🔯','🕎','☸️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚'],
+  '👍 手勢': ['👍','🤜','🏋️','☝','👆','👇','👈','👉','🤞','✌️','🤟','🤘','🤙','✋','🤚','🖐️','👋','🤏','💪','🦾','✍️','🦿','👐','🙌','👏','🤲','🤝','🙏','✊','👊','🤛','🤜','💅','🖖','🦵','🦶','👂','🦻','👃','👁️','👀','👅','🦷','🫀','🫁','🧠','🦴','💄','👄','🦷','💋'],
+  '🐱 動物': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🦧','🦣'],
+  '🍎 食物': ['🍎','🍊','🍋','🍇','🍓','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥥','🥑','🍆','🥕','🥦','🥬','🥒','🌶️','🌽','🥑','🧅','🧄','🥔','🌰','🥜','🍞','🥐','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🌮','🌯','🥙','🥗','🍱','🣡','🍣','🍜','🍝'],
+  '🎮 活動': ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥊','🥋','🥅','⛳','🏹','🎣','🤿','🎽','🎿','🛷','🥌','🎯','🪃','🏋️','🤸','🤼','🤺','🏊','🚴','🧗','🤾','🏌️','🏇','🧘','🤙','🎮','🕹️','🎲','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸'],
+  '🌈 自然': ['☀️','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','🌊','💧','🔥','🌈','🌙','⭐','🌟','💫','✨','⚡','☄️','🌍','🌎','🌏','🌐','🌱','🌿','☘️','🍀','🎋','🎄','🌲','🌳','🌴','🌵','🌾','🌺','🌻','🌹','🥀','🌷','🌸','💐','🍄','🌰','🍁','🍂','🍃','🌏']
 };
 
 function initEmojiPanel() {
@@ -1786,7 +1855,6 @@ document.addEventListener('click', e => {
 
 initEmojiPanel();
 
-// --- 照片（上傳到 Supabase Storage）---
 document.getElementById('composePhotoInput').addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
@@ -1801,7 +1869,6 @@ function removeComposePhoto() {
   document.getElementById('composePhotoPreview').style.display = 'none';
 }
 
-// --- 心情選擇 ---
 document.querySelectorAll('.mood-opt').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.mood-opt').forEach(e => e.classList.remove('selected'));
@@ -1810,7 +1877,6 @@ document.querySelectorAll('.mood-opt').forEach(el => {
   });
 });
 
-// --- 送出留言 ---
 async function sendMessage() {
   const from = document.getElementById('composeFrom').value;
   const to = document.getElementById('composeTo').value;
@@ -1820,9 +1886,8 @@ async function sendMessage() {
 
   let photoUrl = '';
   if (composePhotoFile) {
-    try {
-      photoUrl = await uploadImage(composePhotoFile, 'messages');
-    } catch (e) { alert('照片上傳失敗：' + e.message); return; }
+    try { photoUrl = await uploadImage(composePhotoFile, 'messages'); }
+    catch (e) { alert('照片上傳失敗：' + e.message); return; }
   }
 
   await addMessage({
@@ -1836,14 +1901,12 @@ async function sendMessage() {
     replies: []
   });
 
-  // Reset
   document.getElementById('composeText').value = '';
   removeComposePhoto();
   selectedMood = 'default';
   document.querySelectorAll('.mood-opt').forEach(e => e.classList.toggle('selected', e.dataset.mood === 'default'));
 }
 
-// --- 渲染留言列表 ---
 function renderMessages() {
   const list = document.getElementById('msgList');
   list.innerHTML = '';
@@ -1865,7 +1928,7 @@ function renderMessages() {
   });
 
   if (msgs.length === 0) {
-    list.innerHTML = '<div class="msg-empty">還沒有留言，快來寫下第一則吧！</div>';
+    list.innerHTML = '<div class="msg-empty">這裡沒有留言，快來寫下第一個吧！</div>';
     return;
   }
 
@@ -1881,7 +1944,7 @@ function renderMessages() {
     if (msg.body) html += `<div class="msg-body">${esc(msg.body).replace(/\n/g, '<br>')}</div>`;
     if (msg.photo_url) html += `<img class="msg-photo" src="${esc(msg.photo_url)}" onclick="openLightbox(this.src)">`;
 
-    const reactionEmojis = ['👍','❤️','😂','😮','😢','🎉'];
+    const reactionEmojis = ['👍','❤️','😂','😮','😢','😡'];
     html += `<div class="msg-bottom-row">`;
     reactionEmojis.forEach(em => {
       const count = (msg.reactions && msg.reactions[em]) || 0;
@@ -1892,7 +1955,6 @@ function renderMessages() {
       <button class="msg-act-btn" onclick="deleteMsg('${msg.id}')" title="刪除">🗑️</button>
     </div></div>`;
 
-    // Replies
     const replies = msg.replies || [];
     if (replies.length > 0) {
       html += `<div class="msg-replies">`;
@@ -1935,7 +1997,6 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// --- 互動功能 ---
 async function toggleReaction(msgId, emoji) {
   const msg = appMessages.find(m => m.id === msgId);
   if (!msg) return;
@@ -1959,7 +2020,7 @@ async function replyToMsg(msgId, input) {
   const text = input.value.trim();
   if (!text) return;
   const from = document.getElementById('composeFrom').value;
-  if (!from) { alert('請先在下方選擇你是誰'); return; }
+  if (!from) { alert('請先在上方選擇你是誰'); return; }
   const msg = appMessages.find(m => m.id === msgId);
   if (!msg) return;
   const replies = [...(msg.replies || []), { from, text, date: new Date().toISOString() }];
