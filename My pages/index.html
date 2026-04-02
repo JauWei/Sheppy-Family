@@ -26,7 +26,7 @@
     .modal{background:white;border-radius:1rem;padding:1.5rem;width:100%;max-width:500px;max-height:90vh;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}
     .type-flight{color:#3b82f6}.type-hotel{color:#8b5cf6}.type-meal{color:#f97316}.type-activity{color:#22c55e}.type-transport{color:#64748b}.type-shopping{color:#ec4899}.type-other{color:#14b8a6}
     .bg-type-flight{background:#eff6ff;border-left:3px solid #3b82f6}.bg-type-hotel{background:#f5f3ff;border-left:3px solid #8b5cf6}.bg-type-meal{background:#fff7ed;border-left:3px solid #f97316}.bg-type-activity{background:#f0fdf4;border-left:3px solid #22c55e}.bg-type-transport{background:#f8fafc;border-left:3px solid #64748b}.bg-type-shopping{background:#fdf2f8;border-left:3px solid #ec4899}.bg-type-other{background:#f0fdfa;border-left:3px solid #14b8a6}
-    .day-tab{transition:all .2s;border:none;background:none;font:inherit;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:rgba(99,102,241,.2)}.day-tab.active{background:#6366f1;color:white}.day-tab:not(.active):hover{background:#e0e7ff}
+    .day-tab{transition:all .2s;-webkit-tap-highlight-color:rgba(99,102,241,.2);touch-action:manipulation}.day-tab.active{background:#6366f1;color:white}.day-tab:not(.active):hover{background:#e0e7ff}
     #map-iframe{width:100%;height:300px;border:0;border-radius:.5rem}
     .glass{backdrop-filter:blur(10px);background:rgba(255,255,255,.15)}
     .sortable-ghost{opacity:.4}.sortable-chosen{box-shadow:0 4px 12px rgba(99,102,241,.3)}
@@ -1051,13 +1051,13 @@ function renderDaysSidebar(){
   const list=$('days-list'),empty=$('days-empty');
   if(S.days.length===0){list.innerHTML='';empty.classList.remove('hidden');return}
   empty.classList.add('hidden');
-  list.innerHTML=S.days.map(d=>`<button type="button" class="day-tab ${S.day&&S.day.id===d.id?'active':''} rounded-lg px-3 py-2 cursor-pointer transition group flex items-center gap-2 w-full text-left" onclick="selectDay('${d.id}')">
+  list.innerHTML=S.days.map(d=>`<div class="day-tab ${S.day&&S.day.id===d.id?'active':''} rounded-lg px-3 py-2 cursor-pointer transition group flex items-center gap-2" onclick="selectDay('${d.id}')" role="button" tabindex="0">
     <div class="flex-1 min-w-0"><div class="text-xs font-semibold">Day ${d.day_number}</div><div class="text-xs truncate">${formatDate(d.date)}</div>${d.title?`<div class="text-xs truncate opacity-75">${esc(d.title)}</div>`:''}</div>
-    <div class="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition">
+    <div class="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition" style="flex-direction:row">
       <button type="button" onclick="event.stopPropagation();duplicateDay('${d.id}')" class="w-5 h-5 flex items-center justify-center rounded hover:bg-indigo-100 text-gray-300 hover:text-indigo-500" title="${t('copyDay')}"><i class="fas fa-copy text-[10px]"></i></button>
       <button type="button" onclick="event.stopPropagation();confirmDeleteDay('${d.id}')" class="w-5 h-5 flex items-center justify-center rounded hover:bg-red-100 text-red-300 hover:text-red-500"><i class="fas fa-trash text-[10px]"></i></button>
     </div>
-  </button>`).join('');
+  </div>`).join('');
 }
 function showNoDaySelected(){$('no-day-selected').classList.remove('hidden');$('day-header').classList.add('hidden');$('events-container').classList.add('hidden')}
 async function selectDay(dayId){
