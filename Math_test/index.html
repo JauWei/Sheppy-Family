@@ -573,67 +573,166 @@ function showPvpLobby() {
     </div>`;
 }
 
+// PeerJS config with reliable ICE servers
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      { urls: 'turn:global.relay.metered.ca:80', username:'e8dd65b92aee3d806e4f1124', credential:'dWSgbka6/alCNnms' },
+      { urls: 'turn:global.relay.metered.ca:443', username:'e8dd65b92aee3d806e4f1124', credential:'dWSgbka6/alCNnms' }
+    ]
+  },
+  debug: 0
+};
+
+// Generate a short, human-friendly room code
+function makeRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'SG-';
+  for(let i=0;i<5;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
 function pvpCleanup() {
-  if(conn) { conn.close(); conn=null; }
-  if(peer) { peer.destroy(); peer=null; }
+  if(conn) { try{conn.close()}catch(e){} conn=null; }
+  if(peer) { try{peer.destroy()}catch(e){} peer=null; }
 }
 
 function pvpCreateRoom() {
+  pvpCleanup();
   const area = document.getElementById('lobbyArea');
   const status = document.getElementById('lobbyStatus');
   status.textContent = '正在建立房間...';
   status.className = 'lobby-status';
 
-  peer = new Peer();
+  const roomId = makeRoomCode();
+  peer = new Peer(roomId, PEER_CONFIG);
+
   peer.on('open', id => {
-    area.innerHTML = `<p style="margin-bottom:8px">把這個房間代碼傳給對手：</p><div class="room-code">${id}</div><p style="font-size:.8em;color:var(--text-medium);margin-top:5px">點擊代碼可複製</p>`;
-    area.querySelector('.room-code').onclick = function(){ navigator.clipboard.writeText(id); status.textContent='已複製房間代碼！'; };
-    status.textContent = '等待對手加入...';
+    area.innerHTML = `<p style="margin-bottom:8px">把這個房間代碼傳給對手：</p>
+      <div class="room-code" id="roomCodeDisplay">${id}</div>
+      <p style="font-size:.8em;color:var(--text-medium);margin-top:5px">點擊代碼可複製</p>`;
+    document.getElementById('roomCodeDisplay').onclick = function(){
+      navigator.clipboard.writeText(id).then(()=>{
+        status.textContent='已複製房間代碼！等待對手加入...';
+      });
+    };
+    status.textContent = '房間已建立！等待對手加入...';
   });
+
   peer.on('connection', c => {
     conn = c;
     status.textContent = '對手已連線！準備開始...';
     status.className = 'lobby-status connected';
     conn.on('open', () => {
-      // Host generates first question
-      pvpStartGame(true);
+      // Send a handshake to confirm connection
+      conn.send({ type:'handshake', msg:'ready' });
+      setTimeout(() => pvpStartGame(true), 500);
     });
     conn.on('data', pvpOnData);
     conn.on('close', () => { pvpDisconnected(); });
+    conn.on('error', e => { status.textContent='連線錯誤：'+e; status.className='lobby-status error'; });
   });
+
   peer.on('error', e => {
-    status.textContent = '連線錯誤：' + e.type;
-    status.className = 'lobby-status error';
+    console.error('PeerJS error:', e);
+    if(e.type === 'unavailable-id') {
+      status.textContent = '房間代碼衝突，重新建立中...';
+      setTimeout(() => pvpCreateRoom(), 500);
+    } else {
+      status.textContent = '連線錯誤：' + e.type + '（請確認網路連線正常）';
+      status.className = 'lobby-status error';
+      area.innerHTML += `<div class="btn-row" style="justify-content:center;margin-top:12px">
+        <button class="btn btn-check" onclick="pvpCreateRoom()">&#x1F504; 重試</button></div>`;
+    }
+  });
+
+  peer.on('disconnected', () => {
+    // Auto reconnect to signaling server
+    if(peer && !peer.destroyed) {
+      status.textContent = '信令伺服器斷線，重新連線中...';
+      peer.reconnect();
+    }
   });
 }
 
 function pvpShowJoin() {
   const area = document.getElementById('lobbyArea');
   area.innerHTML = `<p style="margin-bottom:10px">輸入對手的房間代碼：</p>
-    <input type="text" id="joinCode" placeholder="輸入房間代碼" />
-    <br><button class="btn btn-check" onclick="pvpJoinRoom()" style="margin:0 auto">&#x1F517; 加入</button>`;
+    <input type="text" id="joinCode" placeholder="例如：SG-ABC12" style="text-transform:uppercase"/>
+    <br><button class="btn btn-check" id="joinBtn" onclick="pvpJoinRoom()" style="margin:0 auto">&#x1F517; 加入</button>`;
+  document.getElementById('joinCode').addEventListener('keydown', e => { if(e.key==='Enter') pvpJoinRoom(); });
 }
 
+let pvpJoinRetry = 0;
 function pvpJoinRoom() {
-  const code = document.getElementById('joinCode').value.trim();
+  const codeInput = document.getElementById('joinCode');
+  const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
   if(!code) return;
   const status = document.getElementById('lobbyStatus');
-  status.textContent = '正在連線...';
+  const joinBtn = document.getElementById('joinBtn');
+  if(joinBtn) joinBtn.disabled = true;
+  status.textContent = '正在連線到 ' + code + '...';
+  status.className = 'lobby-status';
 
-  peer = new Peer();
+  pvpCleanup();
+  pvpJoinRetry = 0;
+
+  peer = new Peer(PEER_CONFIG);
   peer.on('open', () => {
-    conn = peer.connect(code, { reliable: true });
-    conn.on('open', () => {
-      status.textContent = '已連線！等待開始...';
-      status.className = 'lobby-status connected';
-      pvpStartGame(false);
-    });
-    conn.on('data', pvpOnData);
-    conn.on('close', () => { pvpDisconnected(); });
+    pvpAttemptConnect(code);
   });
   peer.on('error', e => {
-    status.textContent = '連線錯誤：' + e.type;
-    status.className = 'lobby-status error';
+    console.error('PeerJS error:', e);
+    if(e.type === 'peer-unavailable') {
+      pvpJoinRetry++;
+      if(pvpJoinRetry <= 3) {
+        status.textContent = `找不到房間 ${code}，第 ${pvpJoinRetry} 次重試中...（請確認對方已建立房間）`;
+        status.className = 'lobby-status';
+        setTimeout(() => pvpAttemptConnect(code), 2000);
+      } else {
+        status.textContent = `找不到房間 ${code}。請確認：1) 對方已建立房間 2) 代碼正確 3) 雙方網路正常`;
+        status.className = 'lobby-status error';
+        if(joinBtn) joinBtn.disabled = false;
+        const area = document.getElementById('lobbyArea');
+        if(area && !area.querySelector('.retry-btn')) {
+          area.innerHTML += `<div class="btn-row retry-btn" style="justify-content:center;margin-top:12px">
+            <button class="btn btn-check" onclick="pvpJoinRetry=0;pvpJoinRoom()">&#x1F504; 重試</button></div>`;
+        }
+      }
+    } else {
+      status.textContent = '連線錯誤：' + e.type;
+      status.className = 'lobby-status error';
+      if(joinBtn) joinBtn.disabled = false;
+    }
+  });
+}
+
+function pvpAttemptConnect(code) {
+  if(!peer || peer.destroyed) return;
+  conn = peer.connect(code, { reliable: true, serialization: 'json' });
+
+  conn.on('open', () => {
+    const status = document.getElementById('lobbyStatus');
+    if(status) { status.textContent = '已連線！等待開始...'; status.className = 'lobby-status connected'; }
+  });
+
+  conn.on('data', data => {
+    if(data.type === 'handshake') {
+      // Connection confirmed, start game
+      pvpStartGame(false);
+    } else {
+      pvpOnData(data);
+    }
+  });
+
+  conn.on('close', () => { pvpDisconnected(); });
+  conn.on('error', e => {
+    const status = document.getElementById('lobbyStatus');
+    if(status) { status.textContent='資料連線錯誤：'+e; status.className='lobby-status error'; }
   });
 }
 
