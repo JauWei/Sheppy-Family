@@ -4,544 +4,173 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>角落生物數學教室 | Sumikko Gurashi Math</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --shirokuma: #F5F0E8;
-    --penguin: #B8D4A8;
-    --tonkatsu: #F5D6B8;
-    --neko: #F5E6A0;
-    --tokage: #A8D8D8;
-    --ebifurai: #F5C49C;
-    --tapioca: #FFF8DC;
-    --furoshiki: #F2C6D0;
-    --zassou: #C8E6A0;
-    --nisetsumuri: #D4C8A8;
-    --hokori: #E8E4D8;
-    --suzume: #D4B896;
-    --mogura: #C8A882;
-    --dino-mama: #8CBFBF;
-    --bg-cream: #FFF8F0;
-    --bg-pink: #FFF0F5;
-    --text-dark: #5C4033;
-    --text-medium: #8B7355;
-    --accent-pink: #F4A7B9;
-    --accent-blue: #87CEEB;
-    --accent-green: #98D4A6;
-    --correct: #7BC67E;
-    --wrong: #E88B8B;
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg-cream:#FFF8F0;--bg-pink:#FFF0F5;--text-dark:#5C4033;--text-medium:#8B7355;
+    --accent-pink:#F4A7B9;--accent-blue:#87CEEB;--accent-green:#98D4A6;
+    --correct:#7BC67E;--wrong:#E88B8B;
   }
-
-  body {
-    font-family: 'Noto Sans TC', sans-serif;
-    background: var(--bg-cream);
-    color: var(--text-dark);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ===== Floating Background Decorations ===== */
-  .bg-deco {
-    position: fixed;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.15;
-    font-size: 40px;
-  }
+  body{font-family:'Noto Sans TC',sans-serif;background:var(--bg-cream);color:var(--text-dark);min-height:100vh;overflow-x:hidden}
+  .bg-deco{position:fixed;pointer-events:none;z-index:0;opacity:.15;font-size:40px}
 
   /* ===== Header ===== */
-  .header {
-    background: linear-gradient(135deg, var(--accent-pink), #F9D1D8), var(--bg-pink);
-    padding: 25px 20px 20px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(244,167,185,0.3);
-  }
-  .header::before {
-    content: '';
-    position: absolute;
-    top: -30px; left: -30px; right: -30px; bottom: -30px;
-    background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 30%, rgba(255,255,255,0.2) 0%, transparent 40%);
-  }
-  .header h1 {
-    font-size: 2em;
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-    position: relative;
-    z-index: 1;
-    letter-spacing: 2px;
-  }
-  .header p {
-    color: rgba(255,255,255,0.9);
-    font-size: 0.95em;
-    margin-top: 5px;
-    position: relative;
-    z-index: 1;
-  }
+  .header{background:linear-gradient(135deg,var(--accent-pink),#F9D1D8);padding:25px 20px 20px;text-align:center;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(244,167,185,.3)}
+  .header::before{content:'';position:absolute;top:-30px;left:-30px;right:-30px;bottom:-30px;background:radial-gradient(circle at 20% 50%,rgba(255,255,255,.3) 0%,transparent 50%),radial-gradient(circle at 80% 30%,rgba(255,255,255,.2) 0%,transparent 40%)}
+  .header h1{font-size:2em;font-weight:900;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.1);position:relative;z-index:1;letter-spacing:2px}
+  .header p{color:rgba(255,255,255,.9);font-size:.95em;margin-top:5px;position:relative;z-index:1}
+
+  /* ===== Mode Select ===== */
+  .mode-screen{max-width:600px;margin:40px auto;padding:0 15px;text-align:center;position:relative;z-index:1}
+  .mode-screen h2{font-size:1.5em;margin-bottom:25px;color:var(--text-dark)}
+  .mode-cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .mode-card{background:#fff;border-radius:24px;padding:30px 25px;width:250px;cursor:pointer;border:3px solid #eee;box-shadow:0 6px 25px rgba(0,0,0,.06);transition:all .3s}
+  .mode-card:hover{border-color:var(--accent-pink);transform:translateY(-5px);box-shadow:0 12px 35px rgba(244,167,185,.2)}
+  .mode-card .mode-icon{font-size:3em;margin-bottom:12px}
+  .mode-card h3{font-size:1.2em;margin-bottom:8px}
+  .mode-card p{font-size:.85em;color:var(--text-medium);line-height:1.5}
 
   /* ===== Score Bar ===== */
-  .score-bar {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    padding: 15px 20px;
-    background: #fff;
-    border-bottom: 2px dashed var(--accent-pink);
-    flex-wrap: wrap;
-  }
-  .score-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 1em;
-  }
-  .score-item .icon { font-size: 1.3em; }
-  .score-val {
-    background: var(--bg-cream);
-    padding: 2px 12px;
-    border-radius: 20px;
-    min-width: 35px;
-    text-align: center;
-    border: 2px solid var(--accent-pink);
-  }
+  .score-bar{display:flex;justify-content:center;gap:20px;padding:12px 20px;background:#fff;border-bottom:2px dashed var(--accent-pink);flex-wrap:wrap}
+  .score-item{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.9em}
+  .score-item .icon{font-size:1.2em}
+  .score-val{background:var(--bg-cream);padding:2px 10px;border-radius:20px;min-width:30px;text-align:center;border:2px solid var(--accent-pink)}
 
-  /* ===== Main Container ===== */
-  .main {
-    max-width: 750px;
-    margin: 0 auto;
-    padding: 20px 15px 100px;
-    position: relative;
-    z-index: 1;
-  }
+  /* ===== HP Bar ===== */
+  .hp-section{max-width:750px;margin:15px auto 0;padding:0 15px}
+  .hp-bar-wrap{background:#fff;border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:0 3px 12px rgba(0,0,0,.05);border:2px solid #eee}
+  .hp-bar-wrap.boss{border-color:#E88B8B}
+  .hp-bar-wrap.p1{border-color:var(--accent-blue)}
+  .hp-bar-wrap.p2{border-color:var(--accent-pink)}
+  .hp-label{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-weight:700;font-size:.9em}
+  .hp-label img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+  .hp-label .hp-name{flex:1}
+  .hp-label .hp-text{color:var(--text-medium);font-size:.85em}
+  .hp-track{width:100%;height:18px;background:#eee;border-radius:10px;overflow:hidden;position:relative}
+  .hp-fill{height:100%;border-radius:10px;transition:width .5s ease;position:relative}
+  .hp-fill.green{background:linear-gradient(90deg,#81C784,#4CAF50)}
+  .hp-fill.red{background:linear-gradient(90deg,#E57373,#D32F2F)}
+  .hp-fill.blue{background:linear-gradient(90deg,#64B5F6,#1E88E5)}
+  .hp-fill.pink{background:linear-gradient(90deg,#F48FB1,#E91E63)}
+
+  /* ===== Boss Banner ===== */
+  .boss-banner{max-width:750px;margin:15px auto;padding:0 15px}
+  .boss-card{background:linear-gradient(135deg,#FFE0E0,#FFF0E0);border-radius:20px;padding:20px;text-align:center;border:3px solid #E88B8B;animation:bossIn .6s ease}
+  @keyframes bossIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+  .boss-card h2{color:#C62828;font-size:1.4em;margin-bottom:5px}
+  .boss-card p{color:var(--text-medium);font-size:.9em}
+  .boss-card .boss-img{width:100px;height:100px;border-radius:50%;margin:10px auto;object-fit:cover;border:4px solid #E88B8B;box-shadow:0 4px 15px rgba(232,139,139,.3)}
+
+  /* ===== Main ===== */
+  .main{max-width:750px;margin:0 auto;padding:15px 15px 100px;position:relative;z-index:1}
 
   /* ===== Character Card ===== */
-  .character-card {
-    background: #fff;
-    border-radius: 24px;
-    padding: 25px;
-    margin-bottom: 20px;
-    box-shadow: 0 6px 25px rgba(0,0,0,0.06);
-    border: 3px solid var(--accent-pink);
-    position: relative;
-    overflow: hidden;
-    animation: cardIn 0.5s ease;
-  }
-  @keyframes cardIn {
-    from { opacity: 0; transform: translateY(30px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .character-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 6px;
-    background: linear-gradient(90deg, var(--accent-pink), var(--accent-blue), var(--accent-green), var(--accent-pink));
-    background-size: 300% 100%;
-    animation: shimmer 3s linear infinite;
-  }
-  @keyframes shimmer {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 300% 0%; }
-  }
+  .character-card{background:#fff;border-radius:24px;padding:25px;margin-bottom:20px;box-shadow:0 6px 25px rgba(0,0,0,.06);border:3px solid var(--accent-pink);position:relative;overflow:hidden;animation:cardIn .5s ease}
+  @keyframes cardIn{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .character-card::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent-pink),var(--accent-blue),var(--accent-green),var(--accent-pink));background-size:300% 100%;animation:shimmer 3s linear infinite}
+  @keyframes shimmer{0%{background-position:0% 0%}100%{background-position:300% 0%}}
+  .char-top{display:flex;align-items:center;gap:18px;margin-bottom:18px}
+  .char-avatar{width:90px;height:90px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.08);border:3px solid #fff;position:relative;overflow:hidden}
+  .char-avatar img{width:100%;height:100%;object-fit:cover}
+  .char-info h3{font-size:1.2em;font-weight:900;margin-bottom:4px}
+  .char-info .char-desc{font-size:.82em;color:var(--text-medium);line-height:1.5}
+  .char-speech{background:var(--bg-cream);border-radius:16px;padding:14px 18px;margin-bottom:18px;position:relative;font-size:.92em;line-height:1.6;border:2px dashed rgba(0,0,0,.08)}
+  .char-speech::before{content:'';position:absolute;top:-10px;left:30px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:10px solid var(--bg-cream)}
+  .q-type{display:inline-block;padding:3px 14px;border-radius:20px;font-size:.78em;font-weight:700;margin-bottom:12px}
+  .q-type.linear{background:#E3F2FD;color:#1565C0}
+  .q-type.system{background:#FFF3E0;color:#E65100}
+  .math-display{background:linear-gradient(135deg,#FAFAFA,#F5F5F5);border-radius:16px;padding:20px;margin-bottom:18px;text-align:center;font-size:1.5em;font-weight:700;color:var(--text-dark);border:2px solid #eee;line-height:1.8}
+  .math-display .eq-line{display:block;margin:4px 0}
+  .answer-area{display:flex;flex-direction:column;gap:12px}
+  .input-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .input-row label{font-weight:700;font-size:1.1em;min-width:45px}
+  .input-row input{flex:1;min-width:80px;max-width:200px;padding:10px 16px;border:3px solid #ddd;border-radius:14px;font-size:1.1em;font-family:inherit;transition:border-color .3s;outline:none;background:#FAFAFA}
+  .input-row input:focus{border-color:var(--accent-pink);background:#fff}
+  .btn-row{display:flex;gap:10px;margin-top:5px;flex-wrap:wrap}
+  .btn{padding:12px 28px;border:none;border-radius:16px;font-size:1em;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;gap:8px}
+  .btn:active{transform:scale(.95)}
+  .btn-check{background:linear-gradient(135deg,var(--accent-pink),#F08CA0);color:#fff;box-shadow:0 4px 12px rgba(244,167,185,.4)}
+  .btn-hint{background:linear-gradient(135deg,var(--accent-blue),#6CB4E0);color:#fff;box-shadow:0 4px 12px rgba(135,206,235,.4)}
+  .btn-next{background:linear-gradient(135deg,var(--accent-green),#7BC67E);color:#fff;box-shadow:0 4px 12px rgba(152,212,166,.4)}
+  .btn-show-answer{background:linear-gradient(135deg,#FFD54F,#FFB300);color:#5D4037;box-shadow:0 4px 12px rgba(255,183,0,.3)}
+  .btn-back{background:linear-gradient(135deg,#B0BEC5,#90A4AE);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 
-  .char-top {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    margin-bottom: 18px;
-  }
+  .result-box{padding:16px 20px;border-radius:16px;margin-top:15px;font-weight:700;font-size:1em;line-height:1.6;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .result-box.correct{background:#E8F5E9;color:#2E7D32;border:2px solid var(--correct)}
+  .result-box.wrong{background:#FFEBEE;color:#C62828;border:2px solid var(--wrong)}
+  .result-box.hint{background:#E3F2FD;color:#1565C0;border:2px solid var(--accent-blue)}
+  .result-box.answer{background:#FFF8E1;color:#5D4037;border:2px solid #FFB300}
+  .solution-steps{margin-top:15px;background:#FFFDE7;border-radius:16px;padding:18px;border:2px solid #FFF176}
+  .solution-steps h4{font-size:1em;margin-bottom:10px;color:#F57F17}
+  .solution-steps .step{padding:6px 0;font-size:.9em;line-height:1.6;border-bottom:1px dashed #FFF176;color:var(--text-dark)}
+  .solution-steps .step:last-child{border-bottom:none}
 
-  /* ===== Character Avatar ===== */
-  .char-avatar {
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    border: 3px solid #fff;
-    position: relative;
-    overflow: hidden;
-  }
-  .char-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  /* ===== Settings ===== */
+  .settings-toggle{position:fixed;bottom:20px;right:20px;z-index:100;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent-pink),#F08CA0);color:#fff;border:none;font-size:1.5em;cursor:pointer;box-shadow:0 6px 20px rgba(244,167,185,.4);transition:all .3s;display:flex;align-items:center;justify-content:center}
+  .settings-toggle:hover{transform:scale(1.1)}
+  .settings-panel{position:fixed;bottom:90px;right:20px;z-index:99;background:#fff;border-radius:20px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.15);border:3px solid var(--accent-pink);display:none;min-width:260px;animation:panelIn .3s ease}
+  @keyframes panelIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .settings-panel.show{display:block}
+  .settings-panel h3{font-size:1em;margin-bottom:12px;color:var(--accent-pink)}
+  .setting-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:.9em}
+  .setting-item select{padding:5px 10px;border:2px solid #ddd;border-radius:10px;font-family:inherit;font-size:.9em;outline:none}
 
-  .char-info h3 {
-    font-size: 1.2em;
-    font-weight: 900;
-    margin-bottom: 4px;
-  }
-  .char-info .char-desc {
-    font-size: 0.82em;
-    color: var(--text-medium);
-    line-height: 1.5;
-  }
-  .char-speech {
-    background: var(--bg-cream);
-    border-radius: 16px;
-    padding: 14px 18px;
-    margin-bottom: 18px;
-    position: relative;
-    font-size: 0.92em;
-    line-height: 1.6;
-    border: 2px dashed rgba(0,0,0,0.08);
-  }
-  .char-speech::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 30px;
-    width: 0; height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-bottom: 10px solid var(--bg-cream);
-  }
+  /* ===== Lobby (PvP) ===== */
+  .lobby{max-width:500px;margin:30px auto;padding:0 15px;position:relative;z-index:1}
+  .lobby-card{background:#fff;border-radius:24px;padding:30px;box-shadow:0 6px 25px rgba(0,0,0,.06);border:3px solid var(--accent-blue);text-align:center}
+  .lobby-card h2{margin-bottom:15px;font-size:1.3em}
+  .lobby-card p{font-size:.9em;color:var(--text-medium);margin-bottom:15px;line-height:1.5}
+  .lobby-card input[type=text]{width:100%;max-width:300px;padding:12px 16px;border:3px solid #ddd;border-radius:14px;font-size:1.1em;text-align:center;font-family:inherit;outline:none;margin-bottom:12px;letter-spacing:3px}
+  .lobby-card input[type=text]:focus{border-color:var(--accent-blue)}
+  .room-code{font-size:2em;font-weight:900;color:var(--accent-pink);letter-spacing:5px;background:var(--bg-cream);padding:12px 20px;border-radius:16px;display:inline-block;margin:10px 0;user-select:all;border:2px dashed var(--accent-pink)}
+  .lobby-status{margin-top:15px;font-size:.9em;color:var(--text-medium)}
+  .lobby-status.connected{color:var(--correct);font-weight:700}
+  .lobby-status.error{color:var(--wrong)}
 
-  /* ===== Question Type Badge ===== */
-  .q-type {
-    display: inline-block;
-    padding: 3px 14px;
-    border-radius: 20px;
-    font-size: 0.78em;
-    font-weight: 700;
-    margin-bottom: 12px;
-  }
-  .q-type.linear { background: #E3F2FD; color: #1565C0; }
-  .q-type.system { background: #FFF3E0; color: #E65100; }
+  /* ===== PvP Battle Layout ===== */
+  .pvp-timer{text-align:center;font-size:2em;font-weight:900;color:var(--accent-pink);margin:10px 0 5px;position:relative;z-index:1}
 
-  /* ===== Math Display ===== */
-  .math-display {
-    background: linear-gradient(135deg, #FAFAFA, #F5F5F5);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 18px;
-    text-align: center;
-    font-size: 1.5em;
-    font-weight: 700;
-    color: var(--text-dark);
-    border: 2px solid #eee;
-    line-height: 1.8;
-  }
-  .math-display .eq-line {
-    display: block;
-    margin: 4px 0;
-  }
+  /* ===== Victory / Defeat ===== */
+  .end-screen{max-width:500px;margin:40px auto;padding:0 15px;text-align:center;position:relative;z-index:1}
+  .end-card{background:#fff;border-radius:24px;padding:40px 30px;box-shadow:0 6px 25px rgba(0,0,0,.06);border:3px solid var(--accent-pink)}
+  .end-card .end-icon{font-size:4em;margin-bottom:10px}
+  .end-card h2{font-size:1.8em;margin-bottom:10px}
+  .end-card p{font-size:1em;color:var(--text-medium);line-height:1.6;margin-bottom:5px}
 
-  /* ===== Answer Area ===== */
-  .answer-area {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .input-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .input-row label {
-    font-weight: 700;
-    font-size: 1.1em;
-    min-width: 45px;
-  }
-  .input-row input {
-    flex: 1;
-    min-width: 80px;
-    max-width: 200px;
-    padding: 10px 16px;
-    border: 3px solid #ddd;
-    border-radius: 14px;
-    font-size: 1.1em;
-    font-family: inherit;
-    transition: border-color 0.3s;
-    outline: none;
-    background: #FAFAFA;
-  }
-  .input-row input:focus {
-    border-color: var(--accent-pink);
-    background: #fff;
-  }
+  /* ===== Streak / Confetti ===== */
+  .streak-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);font-size:3em;font-weight:900;color:#FF6F00;text-shadow:2px 2px 0 rgba(0,0,0,.1);z-index:200;pointer-events:none;opacity:0;transition:all .5s ease}
+  .streak-popup.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .streak-popup.hide{transform:translate(-50%,-70%) scale(1.2);opacity:0}
+  .confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:150;overflow:hidden}
+  .confetti-piece{position:absolute;width:10px;height:10px;border-radius:2px;top:-20px;animation:confettiFall 2s ease-in forwards}
+  @keyframes confettiFall{to{top:110vh;transform:rotate(720deg);opacity:0}}
 
-  .btn-row {
-    display: flex;
-    gap: 10px;
-    margin-top: 5px;
-    flex-wrap: wrap;
-  }
-  .btn {
-    padding: 12px 28px;
-    border: none;
-    border-radius: 16px;
-    font-size: 1em;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn:active { transform: scale(0.95); }
-
-  .btn-check {
-    background: linear-gradient(135deg, var(--accent-pink), #F08CA0);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(244,167,185,0.4);
-  }
-  .btn-check:hover { box-shadow: 0 6px 18px rgba(244,167,185,0.5); }
-
-  .btn-hint {
-    background: linear-gradient(135deg, var(--accent-blue), #6CB4E0);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(135,206,235,0.4);
-  }
-
-  .btn-next {
-    background: linear-gradient(135deg, var(--accent-green), #7BC67E);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(152,212,166,0.4);
-  }
-
-  .btn-show-answer {
-    background: linear-gradient(135deg, #FFD54F, #FFB300);
-    color: #5D4037;
-    box-shadow: 0 4px 12px rgba(255,183,0,0.3);
-  }
-
-  /* ===== Result Box ===== */
-  .result-box {
-    padding: 16px 20px;
-    border-radius: 16px;
-    margin-top: 15px;
-    font-weight: 700;
-    font-size: 1em;
-    line-height: 1.6;
-    animation: fadeIn 0.3s ease;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .result-box.correct {
-    background: #E8F5E9;
-    color: #2E7D32;
-    border: 2px solid var(--correct);
-  }
-  .result-box.wrong {
-    background: #FFEBEE;
-    color: #C62828;
-    border: 2px solid var(--wrong);
-  }
-  .result-box.hint {
-    background: #E3F2FD;
-    color: #1565C0;
-    border: 2px solid var(--accent-blue);
-  }
-  .result-box.answer {
-    background: #FFF8E1;
-    color: #5D4037;
-    border: 2px solid #FFB300;
-  }
-
-  /* ===== Solution Steps ===== */
-  .solution-steps {
-    margin-top: 15px;
-    background: #FFFDE7;
-    border-radius: 16px;
-    padding: 18px;
-    border: 2px solid #FFF176;
-  }
-  .solution-steps h4 {
-    font-size: 1em;
-    margin-bottom: 10px;
-    color: #F57F17;
-  }
-  .solution-steps .step {
-    padding: 6px 0;
-    font-size: 0.9em;
-    line-height: 1.6;
-    border-bottom: 1px dashed #FFF176;
-    color: var(--text-dark);
-  }
-  .solution-steps .step:last-child { border-bottom: none; }
-
-  /* ===== Settings Panel ===== */
-  .settings-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 100;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-pink), #F08CA0);
-    color: #fff;
-    border: none;
-    font-size: 1.5em;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(244,167,185,0.4);
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .settings-toggle:hover { transform: scale(1.1); }
-
-  .settings-panel {
-    position: fixed;
-    bottom: 90px;
-    right: 20px;
-    z-index: 99;
-    background: #fff;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    border: 3px solid var(--accent-pink);
-    display: none;
-    min-width: 260px;
-    animation: panelIn 0.3s ease;
-  }
-  @keyframes panelIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .settings-panel.show { display: block; }
-  .settings-panel h3 {
-    font-size: 1em;
-    margin-bottom: 12px;
-    color: var(--accent-pink);
-  }
-  .setting-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 0;
-    font-size: 0.9em;
-  }
-  .setting-item select, .setting-item input[type="range"] {
-    padding: 5px 10px;
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    font-family: inherit;
-    font-size: 0.9em;
-    outline: none;
-  }
-
-  /* ===== Streak Animation ===== */
-  .streak-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0);
-    font-size: 3em;
-    font-weight: 900;
-    color: #FF6F00;
-    text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-    z-index: 200;
-    pointer-events: none;
-    opacity: 0;
-    transition: all 0.5s ease;
-  }
-  .streak-popup.show {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  .streak-popup.hide {
-    transform: translate(-50%, -70%) scale(1.2);
-    opacity: 0;
-  }
-
-  /* ===== Confetti ===== */
-  .confetti-container {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 150;
-    overflow: hidden;
-  }
-  .confetti-piece {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    top: -20px;
-    animation: confettiFall 2s ease-in forwards;
-  }
-  @keyframes confettiFall {
-    to {
-      top: 110vh;
-      transform: rotate(720deg);
-      opacity: 0;
-    }
-  }
-
-  /* ===== Responsive ===== */
-  @media (max-width: 500px) {
-    .header h1 { font-size: 1.5em; }
-    .math-display { font-size: 1.2em; padding: 15px; }
-    .char-avatar { width: 70px; height: 70px; }
-    .char-avatar img { width: 100%; height: 100%; }
-    .main { padding: 15px 10px 100px; }
+  @media(max-width:500px){
+    .header h1{font-size:1.5em}
+    .math-display{font-size:1.2em;padding:15px}
+    .char-avatar{width:70px;height:70px}
+    .main{padding:15px 10px 100px}
+    .mode-card{width:100%}
   }
 </style>
 </head>
 <body>
 
-<!-- Background decorations -->
 <div id="bgDecos"></div>
-
-<!-- Streak popup -->
 <div class="streak-popup" id="streakPopup"></div>
 <div class="confetti-container" id="confetti"></div>
 
-<!-- Header -->
 <div class="header">
   <h1>角落生物數學教室</h1>
-  <p>和角落小夥伴一起學數學吧！</p>
+  <p id="headerSub">和角落小夥伴一起學數學吧！</p>
 </div>
 
-<!-- Score Bar -->
-<div class="score-bar">
-  <div class="score-item">
-    <span class="icon">&#x2705;</span>
-    <span>答對</span>
-    <span class="score-val" id="correctCount">0</span>
-  </div>
-  <div class="score-item">
-    <span class="icon">&#x274C;</span>
-    <span>答錯</span>
-    <span class="score-val" id="wrongCount">0</span>
-  </div>
-  <div class="score-item">
-    <span class="icon">&#x1F525;</span>
-    <span>連續</span>
-    <span class="score-val" id="streakCount">0</span>
-  </div>
-  <div class="score-item">
-    <span class="icon">&#x1F4CA;</span>
-    <span>題號</span>
-    <span class="score-val" id="questionNum">1</span>
-  </div>
-</div>
+<div id="app"></div>
 
-<!-- Main -->
-<div class="main" id="main"></div>
-
-<!-- Settings -->
-<button class="settings-toggle" id="settingsBtn" title="設定">&#x2699;</button>
+<button class="settings-toggle" id="settingsBtn" title="設定" style="display:none">&#x2699;</button>
 <div class="settings-panel" id="settingsPanel">
   <h3>&#x2699; 設定</h3>
   <div class="setting-item">
@@ -563,432 +192,102 @@
 </div>
 
 <script>
-// ===== Character Data =====
+// ========== CHARACTER DATA ==========
 const IMG_BASE = 'https://www.san-x.co.jp/uploads/';
 const characters = [
-  {
-    id: 'shirokuma', name: '白熊', nameJP: 'しろくま',
-    color: '#F5F0E8', borderColor: '#E8DFD0',
-    desc: '怕冷的北極熊，從北方逃到南方，喜歡喝熱茶和蓋棉被。',
-    speeches: [
-      '好冷好冷...來做道數學題暖暖腦吧～',
-      '躲在角落算數學，感覺好安心呢...',
-      '裹著裹布算數學最舒服了～',
-      '一邊喝熱茶一邊算數學吧！'
-    ],
-    img: IMG_BASE + '1769160910869-6ah340f176m/1.webp'
-  },
-  {
-    id: 'penguin', name: '企鵝？', nameJP: 'ぺんぎん？',
-    color: '#B8D4A8', borderColor: '#A0C490',
-    desc: '不確定自己是不是企鵝，頭上好像曾經有個盤子，每天都在尋找自我。',
-    speeches: [
-      '我到底是不是企鵝呢...先算數學吧？',
-      '雖然不知道自己是誰，但數學題還是會解的！',
-      '解開這題也許就能找到答案了...',
-      '邊吃小黃瓜邊算數學～'
-    ],
-    img: IMG_BASE + '1769160911896-hktlduhyts4/2.webp'
-  },
-  {
-    id: 'tonkatsu', name: '炸豬排', nameJP: 'とんかつ',
-    color: '#F5D6B8', borderColor: '#E8C4A0',
-    desc: '炸豬排邊邊的肉，99%是油脂，因為太油被吃剩下來，希望有天能被吃掉。',
-    speeches: [
-      '雖然被剩下了...但數學題不會被剩下的！',
-      '1%是瘦肉，99%是油...100%會算數學！',
-      '希望能像解出答案一樣被需要...',
-      '炸得酥酥脆脆地來做數學吧～'
-    ],
-    img: IMG_BASE + '1769160912753-mwcvofiw1hb/3.webp'
-  },
-  {
-    id: 'neko', name: '貓', nameJP: 'ねこ',
-    color: '#F5E6A0', borderColor: '#E8D888',
-    desc: '害羞的貓咪，喜歡躲在角落磨牆壁，很在意身材但又愛吃東西。',
-    speeches: [
-      '在角落磨爪子...順便算個數學吧～',
-      '好想吃東西...先用數學分散注意力！',
-      '喵～這題看起來好好玩！',
-      '躲在角落偷偷算數學，好害羞...'
-    ],
-    img: IMG_BASE + '1769160913779-hxpekre7c8/4.webp'
-  },
-  {
-    id: 'tokage', name: '蜥蜴', nameJP: 'とかげ',
-    color: '#A8D8D8', borderColor: '#90C4C4',
-    desc: '其實是倖存的恐龍，偽裝成蜥蜴生活，很想念住在海裡的媽媽。',
-    speeches: [
-      '噓...這是秘密喔，其實我是恐龍～先來算數學！',
-      '好想念媽媽...做數學題讓心情好起來！',
-      '偽裝成蜥蜴也要認真學數學呢！',
-      '游泳和數學都難不倒我～'
-    ],
-    img: IMG_BASE + '1769160914647-qw2yqsyzgxo/5.webp'
-  },
-  {
-    id: 'ebifurai', name: '炸蝦尾', nameJP: 'えびふらいのしっぽ',
-    color: '#F5C49C', borderColor: '#E0AE80',
-    desc: '因為太硬被吃剩的炸蝦尾巴，和炸豬排是好朋友，偶爾會想起以前身體好長的時候。',
-    speeches: [
-      '雖然硬硬的不好咬...但數學題我咬得動！',
-      '和炸豬排一起做數學最開心了～',
-      '以前身體好長好長...現在腦袋要變長！',
-      '炸蝦尾也能解出數學題哦！'
-    ],
-    img: IMG_BASE + '1769160915458-c4rz2zaocsb/6.webp'
-  },
-  {
-    id: 'tapioca', name: '粉圓', nameJP: 'たぴおか',
-    color: '#FFF8DC', borderColor: '#E8E0C0',
-    desc: '珍珠奶茶裡被喝剩的粉圓，因為不好吸所以被放棄，面無表情但很會模仿。',
-    speeches: [
-      '......（盯著數學題看）',
-      '不好吸沒關係，數學題我會解！',
-      '（模仿計算機的樣子）嗶嗶～',
-      '粉圓很多，數學答案只有一個！'
-    ],
-    img: IMG_BASE + '1769160916269-4r3gjdtlyjf/7.webp'
-  },
-  {
-    id: 'furoshiki', name: '裹布', nameJP: 'ふろしき',
-    color: '#F2C6D0', borderColor: '#E0AAB8',
-    desc: '白熊的行李布，常被拿來當野餐墊、靠墊，是白熊最好的朋友。',
-    speeches: [
-      '被白熊裹著好溫暖～一起算數學吧！',
-      '我可以變成各種形狀，數學也有很多變化呢！',
-      '攤開來當作數學作業本～',
-      '包住答案，不讓它跑走！'
-    ],
-    img: IMG_BASE + '1769160917892-rro27jr8ej8/9.webp'
-  },
-  {
-    id: 'zassou', name: '雜草', nameJP: 'ざっそう',
-    color: '#C8E6A0', borderColor: '#B0D480',
-    desc: '積極正面的小草，夢想成為花店裡的花束，總是展現笑臉。',
-    speeches: [
-      '今天也要元氣滿滿地做數學！',
-      '只要努力，雜草也能開花！數學也一樣！',
-      '嘿嘿～數學題難不倒我！',
-      '用根部吸收知識，腦袋開花！'
-    ],
-    img: IMG_BASE + '1769160918911-waiv4guw2e/10.webp'
-  },
-  {
-    id: 'nisetsumuri', name: '偽蝸牛', nameJP: 'にせつむり',
-    color: '#D4C8A8', borderColor: '#C0B490',
-    desc: '其實是蛞蝓，背著殼假裝蝸牛，是蜥蜴的好朋友，對說謊感到內疚。',
-    speeches: [
-      '背著殼算數學...有點重但沒關係！',
-      '雖然是假的蝸牛，但數學答案要是真的！',
-      '和蜥蜴一起保守秘密，一起學數學！',
-      '慢慢來沒關係，答對最重要～'
-    ],
-    img: IMG_BASE + '1769160919790-ocy9t2dvds/11.webp'
-  },
-  {
-    id: 'hokori', name: '灰塵', nameJP: 'ほこり',
-    color: '#E8E4D8', borderColor: '#D0CCC0',
-    desc: '輕飄飄的灰塵們，總是笑嘻嘻的，聚在一起會變大，也能分裂成小灰塵。',
-    speeches: [
-      '飄啊飄～飄到數學題面前了！',
-      '大家聚在一起想答案～',
-      '輕飄飄的也能算數學哦！',
-      '嘻嘻～數學好有趣！'
-    ],
-    img: IMG_BASE + '1769160920816-sjss1m0hed/12.webp'
-  },
-  {
-    id: 'suzume', name: '麻雀', nameJP: 'すずめ',
-    color: '#D4B896', borderColor: '#C0A480',
-    desc: '普通的小麻雀，對炸豬排很感興趣，經常偷偷啄走炸豬排頭上的麵衣。',
-    speeches: [
-      '嘰嘰喳喳～來啄...不是，來算數學！',
-      '飛來飛去看到好多數學題！',
-      '炸豬排的麵衣好好吃...啊，要專心算數學！',
-      '小小的腦袋也能解大大的題目！'
-    ],
-    img: IMG_BASE + '1769160921604-htu179rvsc/13.webp'
-  },
-  {
-    id: 'mogura', name: '鼹鼠', nameJP: 'もぐら',
-    color: '#C8A882', borderColor: '#B09068',
-    desc: '住在地底下的鼹鼠，性格害羞，偶爾探出頭來到角落和大家交流。',
-    speeches: [
-      '從地底探出頭來算數學！',
-      '地底下太暗了看不到題目...出來做吧！',
-      '挖洞挖洞...挖到數學題了！',
-      '害羞地露出頭...這題我會！'
-    ],
-    img: IMG_BASE + '1769160926014-cjldp4bhng5/18.webp'
-  },
-  {
-    id: 'dinomama', name: '恐龍媽媽', nameJP: 'とかげのおかあさん',
-    color: '#8CBFBF', borderColor: '#70A8A8',
-    desc: '蜥蜴的媽媽，住在角落湖裡的神秘水怪，其實是一隻溫柔的恐龍。',
-    speeches: [
-      '從湖裡浮出來看看孩子們的數學作業～',
-      '媽媽以前也很會算數學哦！',
-      '好想和小蜥蜴一起做數學題...',
-      '用母愛的力量解開這道題吧！'
-    ],
-    img: IMG_BASE + '1769160929057-q83h1s3sj7l/21.webp'
-  }
+  { id:'shirokuma',name:'白熊',nameJP:'しろくま',color:'#F5F0E8',borderColor:'#E8DFD0',desc:'怕冷的北極熊，從北方逃到南方，喜歡喝熱茶和蓋棉被。',speeches:['好冷好冷...來做道數學題暖暖腦吧～','躲在角落算數學，感覺好安心呢...','裹著裹布算數學最舒服了～','一邊喝熱茶一邊算數學吧！'],img:IMG_BASE+'1769160910869-6ah340f176m/1.webp'},
+  { id:'penguin',name:'企鵝？',nameJP:'ぺんぎん？',color:'#B8D4A8',borderColor:'#A0C490',desc:'不確定自己是不是企鵝，頭上好像曾經有個盤子，每天都在尋找自我。',speeches:['我到底是不是企鵝呢...先算數學吧？','雖然不知道自己是誰，但數學題還是會解的！','解開這題也許就能找到答案了...','邊吃小黃瓜邊算數學～'],img:IMG_BASE+'1769160911896-hktlduhyts4/2.webp'},
+  { id:'tonkatsu',name:'炸豬排',nameJP:'とんかつ',color:'#F5D6B8',borderColor:'#E8C4A0',desc:'炸豬排邊邊的肉，99%是油脂，因為太油被吃剩下來，希望有天能被吃掉。',speeches:['雖然被剩下了...但數學題不會被剩下的！','1%是瘦肉，99%是油...100%會算數學！','希望能像解出答案一樣被需要...','炸得酥酥脆脆地來做數學吧～'],img:IMG_BASE+'1769160912753-mwcvofiw1hb/3.webp'},
+  { id:'neko',name:'貓',nameJP:'ねこ',color:'#F5E6A0',borderColor:'#E8D888',desc:'害羞的貓咪，喜歡躲在角落磨牆壁，很在意身材但又愛吃東西。',speeches:['在角落磨爪子...順便算個數學吧～','好想吃東西...先用數學分散注意力！','喵～這題看起來好好玩！','躲在角落偷偷算數學，好害羞...'],img:IMG_BASE+'1769160913779-hxpekre7c8/4.webp'},
+  { id:'tokage',name:'蜥蜴',nameJP:'とかげ',color:'#A8D8D8',borderColor:'#90C4C4',desc:'其實是倖存的恐龍，偽裝成蜥蜴生活，很想念住在海裡的媽媽。',speeches:['噓...這是秘密喔，其實我是恐龍～先來算數學！','好想念媽媽...做數學題讓心情好起來！','偽裝成蜥蜴也要認真學數學呢！','游泳和數學都難不倒我～'],img:IMG_BASE+'1769160914647-qw2yqsyzgxo/5.webp'},
+  { id:'ebifurai',name:'炸蝦尾',nameJP:'えびふらいのしっぽ',color:'#F5C49C',borderColor:'#E0AE80',desc:'因為太硬被吃剩的炸蝦尾巴，和炸豬排是好朋友。',speeches:['雖然硬硬的不好咬...但數學題我咬得動！','和炸豬排一起做數學最開心了～','以前身體好長好長...現在腦袋要變長！','炸蝦尾也能解出數學題哦！'],img:IMG_BASE+'1769160915458-c4rz2zaocsb/6.webp'},
+  { id:'tapioca',name:'粉圓',nameJP:'たぴおか',color:'#FFF8DC',borderColor:'#E8E0C0',desc:'珍珠奶茶裡被喝剩的粉圓，因為不好吸所以被放棄。',speeches:['......（盯著數學題看）','不好吸沒關係，數學題我會解！','（模仿計算機的樣子）嗶嗶～','粉圓很多，數學答案只有一個！'],img:IMG_BASE+'1769160916269-4r3gjdtlyjf/7.webp'},
+  { id:'furoshiki',name:'裹布',nameJP:'ふろしき',color:'#F2C6D0',borderColor:'#E0AAB8',desc:'白熊的行李布，常被拿來當野餐墊、靠墊。',speeches:['被白熊裹著好溫暖～一起算數學吧！','我可以變成各種形狀，數學也有很多變化呢！','攤開來當作數學作業本～','包住答案，不讓它跑走！'],img:IMG_BASE+'1769160917892-rro27jr8ej8/9.webp'},
+  { id:'zassou',name:'雜草',nameJP:'ざっそう',color:'#C8E6A0',borderColor:'#B0D480',desc:'積極正面的小草，夢想成為花店裡的花束。',speeches:['今天也要元氣滿滿地做數學！','只要努力，雜草也能開花！數學也一樣！','嘿嘿～數學題難不倒我！','用根部吸收知識，腦袋開花！'],img:IMG_BASE+'1769160918911-waiv4guw2e/10.webp'},
+  { id:'nisetsumuri',name:'偽蝸牛',nameJP:'にせつむり',color:'#D4C8A8',borderColor:'#C0B490',desc:'其實是蛞蝓，背著殼假裝蝸牛，是蜥蜴的好朋友。',speeches:['背著殼算數學...有點重但沒關係！','雖然是假的蝸牛，但數學答案要是真的！','和蜥蜴一起保守秘密，一起學數學！','慢慢來沒關係，答對最重要～'],img:IMG_BASE+'1769160919790-ocy9t2dvds/11.webp'},
+  { id:'hokori',name:'灰塵',nameJP:'ほこり',color:'#E8E4D8',borderColor:'#D0CCC0',desc:'輕飄飄的灰塵們，總是笑嘻嘻的，聚在一起會變大。',speeches:['飄啊飄～飄到數學題面前了！','大家聚在一起想答案～','輕飄飄的也能算數學哦！','嘻嘻～數學好有趣！'],img:IMG_BASE+'1769160920816-sjss1m0hed/12.webp'},
+  { id:'suzume',name:'麻雀',nameJP:'すずめ',color:'#D4B896',borderColor:'#C0A480',desc:'普通的小麻雀，對炸豬排很感興趣，常偷啄麵衣。',speeches:['嘰嘰喳喳～來啄...不是，來算數學！','飛來飛去看到好多數學題！','炸豬排的麵衣好好吃...啊，要專心算數學！','小小的腦袋也能解大大的題目！'],img:IMG_BASE+'1769160921604-htu179rvsc/13.webp'},
+  { id:'mogura',name:'鼹鼠',nameJP:'もぐら',color:'#C8A882',borderColor:'#B09068',desc:'住在地底下的鼹鼠，性格害羞，偶爾探出頭來。',speeches:['從地底探出頭來算數學！','地底下太暗了看不到題目...出來做吧！','挖洞挖洞...挖到數學題了！','害羞地露出頭...這題我會！'],img:IMG_BASE+'1769160926014-cjldp4bhng5/18.webp'},
+  { id:'dinomama',name:'恐龍媽媽',nameJP:'とかげのおかあさん',color:'#8CBFBF',borderColor:'#70A8A8',desc:'蜥蜴的媽媽，住在角落湖裡的神秘水怪，溫柔的恐龍。',speeches:['從湖裡浮出來看看孩子們的數學作業～','媽媽以前也很會算數學哦！','好想和小蜥蜴一起做數學題...','用母愛的力量解開這道題吧！'],img:IMG_BASE+'1769160929057-q83h1s3sj7l/21.webp'}
 ];
 
-// ===== State =====
-let state = {
-  correct: 0,
-  wrong: 0,
-  streak: 0,
-  bestStreak: 0,
-  questionNum: 0,
-  currentQuestion: null,
-  currentChar: null,
-  answered: false
-};
+// ========== BOSSES (every 5 levels) ==========
+const bosses = [
+  { name:'暗黑粉圓大王', hp:3, img:IMG_BASE+'1769160917070-vq825g584x/8.webp', color:'#4A4A4A',
+    speeches:['黑漆漆的粉圓來擋路了！答對題目才能通過！','哼哼...這題你答得出來嗎？','不要小看粉圓的力量！'] },
+  { name:'巨大灰塵怪', hp:4, img:IMG_BASE+'1769160920816-sjss1m0hed/12.webp', color:'#9E9E9E',
+    speeches:['灰塵們聚在一起變成大怪物了！','飄～飄～你能打敗我嗎？','越來越大了！快用數學打敗我！'] },
+  { name:'迷路的恐龍', hp:5, img:IMG_BASE+'1769160929057-q83h1s3sj7l/21.webp', color:'#70A8A8',
+    speeches:['從遠古而來的恐龍擋住了去路！','吼～～～用數學的力量對付我吧！','好久沒有遇到聰明的人類了...'] },
+];
 
-// ===== Utility =====
-function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; }
+// ========== UTILITY ==========
+function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a}
+function formatFraction(n,d){if(d<0){n=-n;d=-d}const g=gcd(Math.abs(n),d);n/=g;d/=g;if(d===1)return`${n}`;return n<0?`-${Math.abs(n)}/${d}`:`${n}/${d}`}
+function formatCoeff(c,first,v){if(c===0)return'';if(first){if(c===1)return v;if(c===-1)return'-'+v;return c+v}if(c===1)return' + '+v;if(c===-1)return' - '+v;return c>0?' + '+c+v:' - '+Math.abs(c)+v}
 
-function formatFraction(num, den) {
-  if (den < 0) { num = -num; den = -den; }
-  const g = gcd(Math.abs(num), den);
-  num /= g; den /= g;
-  if (den === 1) return `${num}`;
-  if (num < 0) return `-${Math.abs(num)}/${den}`;
-  return `${num}/${den}`;
-}
+// ========== QUESTION GENERATORS ==========
+function genLinearEasy(){const x=randInt(-10,10),a=randInt(1,6)*(Math.random()<.3?-1:1),b=randInt(-15,15),c=a*x+b;const eq=`${formatCoeff(a,true,'x')}${b>=0?' + '+b:' - '+Math.abs(b)} = ${c}`;return{type:'linear',display:eq,answer:{x},steps:[`原式：${eq}`,`移項：${formatCoeff(a,true,'x')} = ${c}${b>=0?' - '+b:' + '+Math.abs(b)}`,`化簡：${formatCoeff(a,true,'x')} = ${c-b}`,a!==1?`兩邊除以 ${a}：x = ${formatFraction(c-b,a)}`:'',`答案：x = ${x}`].filter(Boolean),hint:'提示：先把常數項移到等號右邊，再除以 x 的係數。'}}
+function genLinearMedium(){const x=randInt(-8,8);let a=randInt(2,8)*(Math.random()<.3?-1:1),c=randInt(1,7)*(Math.random()<.3?-1:1);if(a===c)c+=Math.random()<.5?1:-1;const b=randInt(-12,12),d=a*x+b-c*x;const eq=`${formatCoeff(a,true,'x')}${b>=0?' + '+b:' - '+Math.abs(b)} = ${formatCoeff(c,true,'x')}${d>=0?' + '+d:' - '+Math.abs(d)}`;return{type:'linear',display:eq,answer:{x},steps:[`原式：${eq}`,`移項合併：${formatCoeff(a-c,true,'x')} = ${d-b}`,a-c!==1?`兩邊除以 ${a-c}：x = ${formatFraction(d-b,a-c)}`:'',`答案：x = ${x}`].filter(Boolean),hint:'提示：把含 x 的項移到左邊，常數移到右邊。'}}
+function genLinearHard(){const x=randInt(-5,5),a=randInt(2,5),b=randInt(1,4)*(Math.random()<.3?-1:1),cv=randInt(-8,8),d=randInt(2,4),e=randInt(1,3)*(Math.random()<.3?-1:1),f=(a*(b*x+cv)-d*e*x)/d;if(!Number.isInteger(f)||Math.abs(f)>20)return genLinearMedium();const eq=`${a}(${formatCoeff(b,true,'x')}${cv>=0?' + '+cv:' - '+Math.abs(cv)}) = ${d}(${formatCoeff(e,true,'x')}${f>=0?' + '+f:' - '+Math.abs(f)})`;const la=a*b,lb=a*cv,ra=d*e,rb=d*f;return{type:'linear',display:eq,answer:{x},steps:[`原式：${eq}`,`展開：${formatCoeff(la,true,'x')}${lb>=0?' + '+lb:' - '+Math.abs(lb)} = ${formatCoeff(ra,true,'x')}${rb>=0?' + '+rb:' - '+Math.abs(rb)}`,`移項：${formatCoeff(la-ra,true,'x')} = ${rb-lb}`,(la-ra)!==1?`x = ${formatFraction(rb-lb,la-ra)}`:'',`答案：x = ${x}`].filter(Boolean),hint:'提示：先展開括號，再移項合併。'}}
+function genSystemEasy(){const x=randInt(-8,8),y=randInt(-8,8),s=x+y,d=x-y;return{type:'system',display:[`x + y = ${s}`,`x - y = ${d}`],answer:{x,y},steps:[`式(1) + 式(2)：2x = ${s+d}`,`x = ${x}`,`代入式(1)：y = ${s} - ${x} = ${y}`,`答案：x = ${x}，y = ${y}`],hint:'提示：把兩式相加消去 y。'}}
+function genSystemMedium(){const x=randInt(-6,6),y=randInt(-6,6),a1=randInt(1,5),b1=randInt(1,5)*(Math.random()<.4?-1:1),a2=randInt(1,5),b2=randInt(1,5)*(Math.random()<.4?-1:1);if(a1*b2===a2*b1)return genSystemEasy();const c1=a1*x+b1*y,c2=a2*x+b2*y;return{type:'system',display:[`${formatCoeff(a1,true,'x')}${formatCoeff(b1,false,'y')} = ${c1}`,`${formatCoeff(a2,true,'x')}${formatCoeff(b2,false,'y')} = ${c2}`],answer:{x,y},steps:[`用加減消去法消去一個未知數`,`解出 x = ${x}`,`代回求得 y = ${y}`,`答案：x = ${x}，y = ${y}`],hint:'提示：用加減消去法，先消去一個未知數。'}}
+function genSystemHard(){const x=randInt(-5,5),y=randInt(-5,5),a1=randInt(2,6)*(Math.random()<.3?-1:1),b1=randInt(2,6)*(Math.random()<.4?-1:1),a2=randInt(2,6)*(Math.random()<.3?-1:1),b2=randInt(2,6)*(Math.random()<.4?-1:1);if(a1*b2===a2*b1)return genSystemMedium();const c1=a1*x+b1*y,c2=a2*x+b2*y;return{type:'system',display:[`${formatCoeff(a1,true,'x')}${formatCoeff(b1,false,'y')} = ${c1}`,`${formatCoeff(a2,true,'x')}${formatCoeff(b2,false,'y')} = ${c2}`],answer:{x,y},steps:[`用加減消去法`,`式(1)×${Math.abs(a2)}，式(2)×${Math.abs(a1)}`,`消去 x 後求得 y = ${y}`,`代回求得 x = ${x}`,`答案：x = ${x}，y = ${y}`],hint:'提示：將兩式乘以適當倍數再相加減。'}}
 
-function formatCoeff(c, isFirst, variable) {
-  if (c === 0) return '';
-  let s = '';
-  if (isFirst) {
-    if (c === 1) s = variable;
-    else if (c === -1) s = '-' + variable;
-    else s = c + variable;
-  } else {
-    if (c === 1) s = ' + ' + variable;
-    else if (c === -1) s = ' - ' + variable;
-    else if (c > 0) s = ' + ' + c + variable;
-    else s = ' - ' + Math.abs(c) + variable;
-  }
-  return s;
-}
-
-// ===== Question Generators =====
-function genLinearEasy() {
-  // ax + b = c  (integer solution)
-  const x = randInt(-10, 10);
-  const a = randInt(1, 6) * (Math.random() < 0.3 ? -1 : 1);
-  const b = randInt(-15, 15);
-  const c = a * x + b;
-  const eq = `${formatCoeff(a, true, 'x')}${b >= 0 ? ' + ' + b : ' - ' + Math.abs(b)} = ${c}`;
-  return {
-    type: 'linear',
-    display: eq,
-    answer: { x },
-    steps: [
-      `原式：${eq}`,
-      `移項：${formatCoeff(a, true, 'x')} = ${c}${b >= 0 ? ' - ' + b : ' + ' + Math.abs(b)}`,
-      `化簡：${formatCoeff(a, true, 'x')} = ${c - b}`,
-      a !== 1 ? `兩邊除以 ${a}：x = ${(c - b)}/${a} = ${formatFraction(c - b, a)}` : '',
-      `答案：x = ${x}`
-    ].filter(s => s),
-    hint: `提示：先把常數項移到等號右邊，再除以 x 的係數。`
-  };
-}
-
-function genLinearMedium() {
-  // ax + b = cx + d  (integer solution)
-  const x = randInt(-8, 8);
-  let a = randInt(2, 8) * (Math.random() < 0.3 ? -1 : 1);
-  let c = randInt(1, 7) * (Math.random() < 0.3 ? -1 : 1);
-  if (a === c) c = a + (Math.random() < 0.5 ? 1 : -1);
-  const b = randInt(-12, 12);
-  const d = a * x + b - c * x;
-  const eq = `${formatCoeff(a, true, 'x')}${b >= 0 ? ' + ' + b : ' - ' + Math.abs(b)} = ${formatCoeff(c, true, 'x')}${d >= 0 ? ' + ' + d : ' - ' + Math.abs(d)}`;
-  const leftCoeff = a - c;
-  const rightConst = d - b;
-  return {
-    type: 'linear',
-    display: eq,
-    answer: { x },
-    steps: [
-      `原式：${eq}`,
-      `移項：${formatCoeff(a, true, 'x')}${formatCoeff(-c, false, 'x')} = ${d >= 0 ? d : d}${b >= 0 ? ' - ' + b : ' + ' + Math.abs(b)}`,
-      `化簡：${formatCoeff(leftCoeff, true, 'x')} = ${rightConst}`,
-      leftCoeff !== 1 ? `兩邊除以 ${leftCoeff}：x = ${rightConst}/${leftCoeff} = ${formatFraction(rightConst, leftCoeff)}` : '',
-      `答案：x = ${x}`
-    ].filter(s => s),
-    hint: `提示：把含 x 的項移到左邊，常數移到右邊，再合併同類項。`
-  };
-}
-
-function genLinearHard() {
-  // a(bx + c) = d(ex + f) or a(bx+c) + g = h
-  const x = randInt(-5, 5);
-  const a = randInt(2, 5);
-  const b = randInt(1, 4) * (Math.random() < 0.3 ? -1 : 1);
-  const cVal = randInt(-8, 8);
-  const d = randInt(2, 4);
-  const e = randInt(1, 3) * (Math.random() < 0.3 ? -1 : 1);
-  const f = (a * (b * x + cVal) - d * e * x) / d;
-  if (!Number.isInteger(f) || Math.abs(f) > 20) return genLinearMedium();
-  const left = `${a}(${formatCoeff(b, true, 'x')}${cVal >= 0 ? ' + ' + cVal : ' - ' + Math.abs(cVal)})`;
-  const right = `${d}(${formatCoeff(e, true, 'x')}${f >= 0 ? ' + ' + f : ' - ' + Math.abs(f)})`;
-  const eq = `${left} = ${right}`;
-  const la = a * b;
-  const lb = a * cVal;
-  const ra = d * e;
-  const rb = d * f;
-  return {
-    type: 'linear',
-    display: eq,
-    answer: { x },
-    steps: [
-      `原式：${eq}`,
-      `展開左邊：${formatCoeff(la, true, 'x')}${lb >= 0 ? ' + ' + lb : ' - ' + Math.abs(lb)}`,
-      `展開右邊：${formatCoeff(ra, true, 'x')}${rb >= 0 ? ' + ' + rb : ' - ' + Math.abs(rb)}`,
-      `移項：${formatCoeff(la - ra, true, 'x')} = ${rb - lb}`,
-      (la - ra) !== 1 ? `兩邊除以 ${la - ra}：x = ${formatFraction(rb - lb, la - ra)}` : '',
-      `答案：x = ${x}`
-    ].filter(s => s),
-    hint: `提示：先展開括號，再把含 x 的項移到同一邊。`
-  };
-}
-
-function genSystemEasy() {
-  // x + y = s, x - y = d  or simple coefficients
-  const x = randInt(-8, 8);
-  const y = randInt(-8, 8);
-  const s = x + y;
-  const d = x - y;
-  return {
-    type: 'system',
-    display: [`x + y = ${s}`, `x - y = ${d}`],
-    answer: { x, y },
-    steps: [
-      `式(1)：x + y = ${s}`,
-      `式(2)：x - y = ${d}`,
-      `式(1) + 式(2)：2x = ${s + d}`,
-      `所以 x = ${(s + d) / 2}`,
-      `代入式(1)：${(s + d) / 2} + y = ${s}`,
-      `所以 y = ${s - (s + d) / 2}`,
-      `答案：x = ${x}，y = ${y}`
-    ],
-    hint: `提示：把兩個式子相加，可以消去 y，先求出 x。`
-  };
-}
-
-function genSystemMedium() {
-  const x = randInt(-6, 6);
-  const y = randInt(-6, 6);
-  const a1 = randInt(1, 5);
-  const b1 = randInt(1, 5) * (Math.random() < 0.4 ? -1 : 1);
-  const a2 = randInt(1, 5);
-  const b2 = randInt(1, 5) * (Math.random() < 0.4 ? -1 : 1);
-  if (a1 * b2 === a2 * b1) return genSystemEasy();
-  const c1 = a1 * x + b1 * y;
-  const c2 = a2 * x + b2 * y;
-  const eq1 = `${formatCoeff(a1, true, 'x')}${formatCoeff(b1, false, 'y')} = ${c1}`;
-  const eq2 = `${formatCoeff(a2, true, 'x')}${formatCoeff(b2, false, 'y')} = ${c2}`;
-  const mul1 = Math.abs(b2);
-  const mul2 = Math.abs(b1);
-  return {
-    type: 'system',
-    display: [eq1, eq2],
-    answer: { x, y },
-    steps: [
-      `式(1)：${eq1}`,
-      `式(2)：${eq2}`,
-      `用加減消去法消去 y：`,
-      `式(1) × ${mul1}：${formatCoeff(a1 * mul1, true, 'x')}${formatCoeff(b1 * mul1, false, 'y')} = ${c1 * mul1}`,
-      `式(2) × ${mul2}：${formatCoeff(a2 * mul2, true, 'x')}${formatCoeff(b2 * mul2, false, 'y')} = ${c2 * mul2}`,
-      `解出 x = ${x}`,
-      `代回式(1)求得 y = ${y}`,
-      `答案：x = ${x}，y = ${y}`
-    ],
-    hint: `提示：用加減消去法，先消去一個未知數，再代回求另一個。`
-  };
-}
-
-function genSystemHard() {
-  const x = randInt(-5, 5);
-  const y = randInt(-5, 5);
-  const a1 = randInt(2, 6) * (Math.random() < 0.3 ? -1 : 1);
-  const b1 = randInt(2, 6) * (Math.random() < 0.4 ? -1 : 1);
-  const a2 = randInt(2, 6) * (Math.random() < 0.3 ? -1 : 1);
-  const b2 = randInt(2, 6) * (Math.random() < 0.4 ? -1 : 1);
-  if (a1 * b2 === a2 * b1) return genSystemMedium();
-  const c1 = a1 * x + b1 * y;
-  const c2 = a2 * x + b2 * y;
-  const eq1 = `${formatCoeff(a1, true, 'x')}${formatCoeff(b1, false, 'y')} = ${c1}`;
-  const eq2 = `${formatCoeff(a2, true, 'x')}${formatCoeff(b2, false, 'y')} = ${c2}`;
-  return {
-    type: 'system',
-    display: [eq1, eq2],
-    answer: { x, y },
-    steps: [
-      `式(1)：${eq1}`,
-      `式(2)：${eq2}`,
-      `用加減消去法：`,
-      `式(1) × ${Math.abs(a2)}：${formatCoeff(a1 * Math.abs(a2), true, 'x')}${formatCoeff(b1 * Math.abs(a2), false, 'y')} = ${c1 * Math.abs(a2)}`,
-      `式(2) × ${Math.abs(a1)}：${formatCoeff(a2 * Math.abs(a1), true, 'x')}${formatCoeff(b2 * Math.abs(a1), false, 'y')} = ${c2 * Math.abs(a1)}`,
-      `消去 x 後求得 y = ${y}`,
-      `代回式(1)求得 x = ${x}`,
-      `答案：x = ${x}，y = ${y}`
-    ],
-    hint: `提示：將兩式分別乘以適當倍數，使某一未知數的係數相同或相反，再相加減消去。`
-  };
-}
-
-function generateQuestion() {
+function generateQuestion(diff){
+  diff = diff || document.getElementById('difficulty').value;
   const qType = document.getElementById('qType').value;
-  const diff = document.getElementById('difficulty').value;
-  let type;
-  if (qType === 'mixed') type = Math.random() < 0.5 ? 'linear' : 'system';
-  else type = qType;
-
-  if (type === 'linear') {
-    if (diff === 'easy') return genLinearEasy();
-    if (diff === 'medium') return genLinearMedium();
-    return genLinearHard();
-  } else {
-    if (diff === 'easy') return genSystemEasy();
-    if (diff === 'medium') return genSystemMedium();
-    return genSystemHard();
-  }
+  let type = qType==='mixed'?(Math.random()<.5?'linear':'system'):qType;
+  if(type==='linear'){return diff==='easy'?genLinearEasy():diff==='medium'?genLinearMedium():genLinearHard()}
+  return diff==='easy'?genSystemEasy():diff==='medium'?genSystemMedium():genSystemHard();
 }
 
-// ===== UI Rendering =====
-function renderQuestion() {
-  state.questionNum++;
-  state.answered = false;
-  state.currentChar = pick(characters);
-  state.currentQuestion = generateQuestion();
-  const ch = state.currentChar;
-  const q = state.currentQuestion;
+// ========== GLOBAL STATE ==========
+let gameMode = null; // 'solo' | 'pvp'
+let soloState = null;
+let pvpState = null;
+let peer = null;
+let conn = null;
 
-  document.getElementById('questionNum').textContent = state.questionNum;
+// ========== SHARED UI HELPERS ==========
+function showStreakAnim(streak){
+  const popup=document.getElementById('streakPopup');
+  const msgs=['&#x1F525; 連續答對！','&#x1F31F; 超級厲害！','&#x2B50; 數學天才！','&#x1F389; 太強了！'];
+  popup.innerHTML=`${pick(msgs)}<br><span style="font-size:.5em">連續 ${streak} 題！</span>`;
+  popup.className='streak-popup show';
+  setTimeout(()=>{popup.className='streak-popup hide'},1500);
+  setTimeout(()=>{popup.className='streak-popup'},2000);
+}
+function spawnConfetti(){
+  const c=document.getElementById('confetti');
+  const cols=['#F4A7B9','#87CEEB','#98D4A6','#FFD54F','#F5C49C','#D8A8E8'];
+  for(let i=0;i<40;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=Math.random()*100+'vw';p.style.background=pick(cols);p.style.animationDelay=Math.random()*.8+'s';p.style.animationDuration=(1.5+Math.random())+'s';p.style.width=(6+Math.random()*8)+'px';p.style.height=(6+Math.random()*8)+'px';p.style.borderRadius=Math.random()<.5?'50%':'2px';c.appendChild(p)}
+  setTimeout(()=>{c.innerHTML=''},3000);
+}
+function initBgDecos(){
+  const emojis=['&#x1F43B;&#x200D;&#x2744;','&#x1F427;','&#x1F969;','&#x1F431;','&#x1F98E;','&#x1F364;','&#x1F4AE;','&#x1F331;','&#x1F40C;','&#x1FAB6;','&#x1F426;'];
+  const c=document.getElementById('bgDecos');
+  for(let i=0;i<15;i++){const d=document.createElement('div');d.className='bg-deco';d.innerHTML=emojis[i%emojis.length];d.style.left=Math.random()*95+'%';d.style.top=Math.random()*95+'%';d.style.fontSize=(25+Math.random()*30)+'px';d.style.transform=`rotate(${Math.random()*60-30}deg)`;c.appendChild(d)}
+}
 
+function buildQuestionHTML(ch, q, opts = {}) {
   const isSystem = q.type === 'system';
   const mathHtml = isSystem
-    ? q.display.map((eq, i) => `<span class="eq-line">式(${i + 1})：${eq}</span>`).join('')
+    ? q.display.map((eq,i)=>`<span class="eq-line">式(${i+1})：${eq}</span>`).join('')
     : `<span class="eq-line">${q.display}</span>`;
-
   const inputHtml = isSystem
-    ? `<div class="input-row"><label>x =</label><input type="number" id="ansX" step="any" autofocus></div>
+    ? `<div class="input-row"><label>x =</label><input type="number" id="ansX" step="any"></div>
        <div class="input-row"><label>y =</label><input type="number" id="ansY" step="any"></div>`
-    : `<div class="input-row"><label>x =</label><input type="number" id="ansX" step="any" autofocus></div>`;
-
-  const html = `
+    : `<div class="input-row"><label>x =</label><input type="number" id="ansX" step="any"></div>`;
+  const hintBtn = opts.hideHint ? '' : `<button class="btn btn-hint" onclick="${opts.hintFn||'soloHint'}()">&#x1F4A1; 提示</button>`;
+  const showAnsBtn = opts.hideShowAns ? '' : `<button class="btn btn-show-answer" onclick="${opts.showAnsFn||'soloShowAnswer'}()">&#x1F440; 看答案</button>`;
+  return `
     <div class="character-card">
       <div class="char-top">
-        <div class="char-avatar" style="background:${ch.color}; border-color:${ch.borderColor}">
-          <img src="${ch.img}" alt="${ch.name}" />
+        <div class="char-avatar" style="background:${ch.color};border-color:${ch.borderColor}">
+          <img src="${ch.img}" alt="${ch.name}"/>
         </div>
         <div class="char-info">
           <h3>${ch.name} <small style="color:${ch.borderColor}">${ch.nameJP}</small></h3>
@@ -996,181 +295,538 @@ function renderQuestion() {
         </div>
       </div>
       <div class="char-speech">${pick(ch.speeches)}</div>
-      <span class="q-type ${q.type === 'linear' ? 'linear' : 'system'}">
-        ${q.type === 'linear' ? '一元一次方程式' : '二元一次聯立方程式'}
-      </span>
+      <span class="q-type ${q.type==='linear'?'linear':'system'}">${q.type==='linear'?'一元一次方程式':'二元一次聯立方程式'}</span>
       <div class="math-display">${mathHtml}</div>
       <div class="answer-area">
         ${inputHtml}
         <div class="btn-row">
-          <button class="btn btn-check" onclick="checkAnswer()">&#x2714; 確認答案</button>
-          <button class="btn btn-hint" onclick="showHint()">&#x1F4A1; 提示</button>
-          <button class="btn btn-show-answer" onclick="showAnswer()">&#x1F440; 看答案</button>
+          <button class="btn btn-check" onclick="${opts.checkFn||'soloCheck'}()">&#x2714; 確認答案</button>
+          ${hintBtn}${showAnsBtn}
         </div>
         <div id="resultArea"></div>
       </div>
-    </div>
-  `;
-  document.getElementById('main').innerHTML = html;
+    </div>`;
+}
 
-  // Enter key to submit
-  document.querySelectorAll('.answer-area input').forEach(input => {
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer(); });
+function bindEnterKey(fn) {
+  document.querySelectorAll('.answer-area input').forEach(inp => {
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') window[fn](); });
   });
   document.getElementById('ansX')?.focus();
 }
 
-function checkAnswer() {
-  if (state.answered) return;
-  const q = state.currentQuestion;
-  const xInput = document.getElementById('ansX');
-  const xVal = parseFloat(xInput?.value);
-
-  if (isNaN(xVal)) {
-    showResult('hint', '請輸入數字答案哦！');
-    return;
+function checkAnswerValues(q) {
+  const xVal = parseFloat(document.getElementById('ansX')?.value);
+  if(isNaN(xVal)) return null;
+  if(q.type==='system'){
+    const yVal = parseFloat(document.getElementById('ansY')?.value);
+    if(isNaN(yVal)) return null;
+    return Math.abs(xVal-q.answer.x)<.01 && Math.abs(yVal-q.answer.y)<.01;
   }
+  return Math.abs(xVal-q.answer.x)<.01;
+}
 
-  let correct = false;
-  if (q.type === 'system') {
-    const yInput = document.getElementById('ansY');
-    const yVal = parseFloat(yInput?.value);
-    if (isNaN(yVal)) {
-      showResult('hint', '請輸入 y 的答案哦！');
-      return;
+function showResult(type,msg){
+  const a=document.getElementById('resultArea');if(!a)return;
+  if(a.querySelector('.result-box')&&type==='hint'){a.innerHTML+=`<div class="result-box ${type}">${msg}</div>`;return}
+  a.innerHTML=`<div class="result-box ${type}">${msg}</div>`+(a.querySelector('.solution-steps')?.outerHTML||'');
+}
+function showSolution(q){
+  const a=document.getElementById('resultArea');if(!a)return;
+  a.innerHTML+=`<div class="solution-steps"><h4>&#x1F4DD; 解題步驟</h4>${q.steps.map(s=>`<div class="step">${s}</div>`).join('')}</div>`;
+}
+
+// ========================================================
+//  MODE SELECT SCREEN
+// ========================================================
+function showModeSelect() {
+  gameMode = null;
+  document.getElementById('settingsBtn').style.display = 'none';
+  document.getElementById('headerSub').textContent = '和角落小夥伴一起學數學吧！';
+  document.getElementById('app').innerHTML = `
+    <div class="mode-screen">
+      <h2>選擇遊戲模式</h2>
+      <div class="mode-cards">
+        <div class="mode-card" onclick="startSolo()">
+          <div class="mode-icon">&#x1F3AE;</div>
+          <h3>單人通關</h3>
+          <p>一個人挑戰關卡！<br>每通過 5 關就會遇到 Boss<br>打敗 Boss 才能繼續前進！</p>
+        </div>
+        <div class="mode-card" onclick="showPvpLobby()">
+          <div class="mode-icon">&#x2694;&#xFE0F;</div>
+          <h3>雙人對戰</h3>
+          <p>和朋友連線對戰！<br>答對題目可以攻擊對手<br>先把對手 HP 歸零就獲勝！</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ========================================================
+//  SOLO MODE
+// ========================================================
+function startSolo() {
+  gameMode = 'solo';
+  soloState = {
+    level: 0, correct: 0, wrong: 0, streak: 0,
+    playerHp: 10, playerMaxHp: 10,
+    inBoss: false, bossHp: 0, bossMaxHp: 0, bossData: null,
+    answered: false, currentChar: null, currentQuestion: null
+  };
+  document.getElementById('settingsBtn').style.display = 'flex';
+  document.getElementById('headerSub').textContent = '單人通關模式';
+  soloNextLevel();
+}
+
+function soloNextLevel() {
+  const s = soloState;
+  s.level++;
+  s.answered = false;
+
+  // Every 5 levels => boss
+  if (s.level % 5 === 0 && s.level > 0) {
+    s.inBoss = true;
+    const bIdx = Math.min(Math.floor(s.level / 5) - 1, bosses.length - 1);
+    s.bossData = bosses[bIdx];
+    s.bossHp = s.bossData.hp + Math.floor(s.level / 10);
+    s.bossMaxHp = s.bossHp;
+    soloRenderBoss();
+  } else {
+    s.inBoss = false;
+    soloRenderNormal();
+  }
+}
+
+function soloRenderNormal() {
+  const s = soloState;
+  s.currentChar = pick(characters);
+  s.currentQuestion = generateQuestion();
+  s.answered = false;
+
+  let html = `<div class="score-bar">
+    <div class="score-item"><span class="icon">&#x1F3F0;</span><span>關卡</span><span class="score-val">${s.level}</span></div>
+    <div class="score-item"><span class="icon">&#x2705;</span><span>答對</span><span class="score-val">${s.correct}</span></div>
+    <div class="score-item"><span class="icon">&#x1F525;</span><span>連續</span><span class="score-val">${s.streak}</span></div>
+  </div>`;
+  // Player HP
+  html += `<div class="hp-section"><div class="hp-bar-wrap p1">
+    <div class="hp-label"><img src="${s.currentChar.img}" alt=""/><span class="hp-name">我的 HP</span><span class="hp-text">${s.playerHp} / ${s.playerMaxHp}</span></div>
+    <div class="hp-track"><div class="hp-fill green" style="width:${s.playerHp/s.playerMaxHp*100}%"></div></div>
+  </div></div>`;
+  // Next boss hint
+  const nextBoss = 5 - (s.level % 5);
+  html += `<div style="text-align:center;padding:8px;font-size:.85em;color:var(--text-medium)">距離 Boss 還有 ${nextBoss} 關</div>`;
+  html += `<div class="main">${buildQuestionHTML(s.currentChar, s.currentQuestion, {checkFn:'soloCheck',hintFn:'soloHint',showAnsFn:'soloShowAnswer'})}</div>`;
+
+  document.getElementById('app').innerHTML = html;
+  bindEnterKey('soloCheck');
+}
+
+function soloRenderBoss() {
+  const s = soloState;
+  s.currentChar = pick(characters);
+  s.currentQuestion = generateQuestion();
+  s.answered = false;
+
+  let html = `<div class="score-bar">
+    <div class="score-item"><span class="icon">&#x1F3F0;</span><span>關卡</span><span class="score-val">${s.level}</span></div>
+    <div class="score-item"><span class="icon">&#x2705;</span><span>答對</span><span class="score-val">${s.correct}</span></div>
+    <div class="score-item"><span class="icon">&#x1F525;</span><span>連續</span><span class="score-val">${s.streak}</span></div>
+  </div>`;
+  // Boss banner
+  html += `<div class="boss-banner"><div class="boss-card">
+    <h2>&#x1F47E; BOSS 出現！</h2>
+    <img class="boss-img" src="${s.bossData.img}" alt="${s.bossData.name}"/>
+    <h3 style="color:#C62828">${s.bossData.name}</h3>
+    <p>${pick(s.bossData.speeches)}</p>
+  </div></div>`;
+  // HP bars
+  html += `<div class="hp-section">
+    <div class="hp-bar-wrap boss">
+      <div class="hp-label"><img src="${s.bossData.img}" alt=""/><span class="hp-name">${s.bossData.name}</span><span class="hp-text">${s.bossHp} / ${s.bossMaxHp}</span></div>
+      <div class="hp-track"><div class="hp-fill red" style="width:${s.bossHp/s.bossMaxHp*100}%"></div></div>
+    </div>
+    <div class="hp-bar-wrap p1">
+      <div class="hp-label"><img src="${s.currentChar.img}" alt=""/><span class="hp-name">我的 HP</span><span class="hp-text">${s.playerHp} / ${s.playerMaxHp}</span></div>
+      <div class="hp-track"><div class="hp-fill green" style="width:${s.playerHp/s.playerMaxHp*100}%"></div></div>
+    </div>
+  </div>`;
+  html += `<div class="main">${buildQuestionHTML(s.currentChar, s.currentQuestion, {checkFn:'soloCheck',hintFn:'soloHint',showAnsFn:'soloShowAnswer'})}</div>`;
+
+  document.getElementById('app').innerHTML = html;
+  bindEnterKey('soloCheck');
+}
+
+function soloCheck() {
+  const s = soloState;
+  if(s.answered) return;
+  const result = checkAnswerValues(s.currentQuestion);
+  if(result === null){ showResult('hint','請輸入數字答案哦！'); return; }
+  s.answered = true;
+
+  if(result) {
+    s.correct++;
+    s.streak++;
+    if(s.inBoss) {
+      s.bossHp--;
+      showResult('correct',`答對了！對 ${s.bossData.name} 造成 1 點傷害！（剩餘 HP: ${s.bossHp}）`);
+      if(s.streak>=3 && s.streak%3===0) showStreakAnim(s.streak);
+      if(s.streak>=5) spawnConfetti();
+      if(s.bossHp <= 0) {
+        // Boss defeated
+        setTimeout(()=>{
+          spawnConfetti();
+          showResult('correct',`&#x1F389; 打敗了 ${s.bossData.name}！繼續前進！`);
+          setTimeout(()=>{ soloNextLevel(); }, 1500);
+        }, 800);
+        return;
+      }
+    } else {
+      const msgs=[`太棒了！答對了！${s.currentChar.name}好開心！`,`正確！繼續加油！`,`完全正確！${s.currentChar.name}為你鼓掌！`];
+      showResult('correct',pick(msgs));
+      if(s.streak>=3 && s.streak%3===0) showStreakAnim(s.streak);
+      if(s.streak>=5) spawnConfetti();
     }
-    correct = (Math.abs(xVal - q.answer.x) < 0.01) && (Math.abs(yVal - q.answer.y) < 0.01);
   } else {
-    correct = Math.abs(xVal - q.answer.x) < 0.01;
+    s.wrong++;
+    s.streak = 0;
+    if(s.inBoss) {
+      s.playerHp--;
+      const q = s.currentQuestion;
+      const ansStr = q.type==='system'?`x = ${q.answer.x}，y = ${q.answer.y}`:`x = ${q.answer.x}`;
+      showResult('wrong',`答錯了！Boss 對你造成 1 點傷害！（你的 HP: ${s.playerHp}）正確答案：${ansStr}`);
+      showSolution(q);
+      if(s.playerHp <= 0) {
+        setTimeout(()=>{ soloGameOver(); }, 1200);
+        return;
+      }
+    } else {
+      s.playerHp--;
+      const q = s.currentQuestion;
+      const ansStr = q.type==='system'?`x = ${q.answer.x}，y = ${q.answer.y}`:`x = ${q.answer.x}`;
+      showResult('wrong',`不對哦...正確答案是 ${ansStr}（HP -1，剩餘: ${s.playerHp}）`);
+      showSolution(q);
+      if(s.playerHp <= 0) {
+        setTimeout(()=>{ soloGameOver(); }, 1200);
+        return;
+      }
+    }
   }
-
-  state.answered = true;
-
-  if (correct) {
-    state.correct++;
-    state.streak++;
-    if (state.streak > state.bestStreak) state.bestStreak = state.streak;
-    const msgs = [
-      `太棒了！答對了！${state.currentChar.name}好開心！`,
-      `正確！你好厲害！${state.currentChar.name}為你鼓掌！`,
-      `完全正確！繼續加油！`,
-      `答對啦～${state.currentChar.name}送你一個愛心！`
-    ];
-    showResult('correct', pick(msgs));
-    if (state.streak >= 3 && state.streak % 3 === 0) showStreak();
-    if (state.streak >= 5) spawnConfetti();
-  } else {
-    state.wrong++;
-    state.streak = 0;
-    const ansStr = q.type === 'system'
-      ? `正確答案是 x = ${q.answer.x}，y = ${q.answer.y}`
-      : `正確答案是 x = ${q.answer.x}`;
-    showResult('wrong', `不對哦...${ansStr}。${state.currentChar.name}說沒關係，再試試看！`);
-    showSolution();
-  }
-
-  updateScores();
-  showNextButton();
-}
-
-function showHint() {
-  if (state.answered) return;
-  showResult('hint', state.currentQuestion.hint);
-}
-
-function showAnswer() {
-  if (state.answered) return;
-  state.answered = true;
-  state.wrong++;
-  state.streak = 0;
-  const q = state.currentQuestion;
-  const ansStr = q.type === 'system'
-    ? `x = ${q.answer.x}，y = ${q.answer.y}`
-    : `x = ${q.answer.x}`;
-  showResult('answer', `答案是：${ansStr}`);
-  showSolution();
-  updateScores();
-  showNextButton();
-}
-
-function showResult(type, msg) {
+  // Next question button
   const area = document.getElementById('resultArea');
-  const existing = area.querySelector('.result-box');
-  if (existing && type === 'hint') {
-    existing.outerHTML += `<div class="result-box ${type}">${msg}</div>`;
+  if(area) {
+    const nextFn = s.inBoss && s.bossHp > 0 ? 'soloRenderBoss' : 'soloNextLevel';
+    area.innerHTML += `<div class="btn-row" style="margin-top:12px"><button class="btn btn-next" onclick="${nextFn}()">&#x27A1; ${s.inBoss && s.bossHp>0?'繼續挑戰':'下一關'}</button></div>`;
+  }
+}
+
+function soloHint(){ if(!soloState.answered) showResult('hint', soloState.currentQuestion.hint); }
+function soloShowAnswer(){
+  const s=soloState; if(s.answered) return;
+  s.answered=true; s.wrong++; s.streak=0; s.playerHp--;
+  const q=s.currentQuestion;
+  const ansStr=q.type==='system'?`x=${q.answer.x}，y=${q.answer.y}`:`x=${q.answer.x}`;
+  showResult('answer',`答案：${ansStr}（HP -1，剩餘: ${s.playerHp}）`);
+  showSolution(q);
+  if(s.playerHp<=0){setTimeout(()=>soloGameOver(),1200);return}
+  const area=document.getElementById('resultArea');
+  const nextFn=s.inBoss&&s.bossHp>0?'soloRenderBoss':'soloNextLevel';
+  if(area) area.innerHTML+=`<div class="btn-row" style="margin-top:12px"><button class="btn btn-next" onclick="${nextFn}()">&#x27A1; ${s.inBoss&&s.bossHp>0?'繼續挑戰':'下一關'}</button></div>`;
+}
+
+function soloGameOver(){
+  document.getElementById('app').innerHTML=`
+    <div class="end-screen"><div class="end-card">
+      <div class="end-icon">&#x1F4A5;</div>
+      <h2>遊戲結束！</h2>
+      <p>你闖到了第 ${soloState.level} 關</p>
+      <p>答對 ${soloState.correct} 題</p>
+      <p>最高連續答對 ${soloState.streak} 題</p>
+      <div class="btn-row" style="justify-content:center;margin-top:20px">
+        <button class="btn btn-next" onclick="startSolo()">&#x1F504; 重新挑戰</button>
+        <button class="btn btn-back" onclick="showModeSelect()">&#x1F3E0; 回主選單</button>
+      </div>
+    </div></div>`;
+}
+
+// ========================================================
+//  PVP MODE (PeerJS WebRTC)
+// ========================================================
+function showPvpLobby() {
+  gameMode = 'pvp';
+  document.getElementById('settingsBtn').style.display = 'flex';
+  document.getElementById('headerSub').textContent = '雙人對戰模式';
+  document.getElementById('app').innerHTML = `
+    <div class="lobby">
+      <div class="lobby-card">
+        <h2>&#x2694;&#xFE0F; 雙人對戰</h2>
+        <p>建立房間或輸入房間代碼加入對戰！<br>雙方各有 10 HP，答對攻擊對手，答錯自己扣血。</p>
+        <div class="btn-row" style="justify-content:center;margin-bottom:15px">
+          <button class="btn btn-check" onclick="pvpCreateRoom()">&#x1F3E0; 建立房間</button>
+          <button class="btn btn-hint" onclick="pvpShowJoin()">&#x1F517; 加入房間</button>
+        </div>
+        <div id="lobbyArea"></div>
+        <div id="lobbyStatus" class="lobby-status"></div>
+        <div class="btn-row" style="justify-content:center;margin-top:15px">
+          <button class="btn btn-back" onclick="pvpCleanup();showModeSelect()">&#x1F3E0; 回主選單</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function pvpCleanup() {
+  if(conn) { conn.close(); conn=null; }
+  if(peer) { peer.destroy(); peer=null; }
+}
+
+function pvpCreateRoom() {
+  const area = document.getElementById('lobbyArea');
+  const status = document.getElementById('lobbyStatus');
+  status.textContent = '正在建立房間...';
+  status.className = 'lobby-status';
+
+  peer = new Peer();
+  peer.on('open', id => {
+    area.innerHTML = `<p style="margin-bottom:8px">把這個房間代碼傳給對手：</p><div class="room-code">${id}</div><p style="font-size:.8em;color:var(--text-medium);margin-top:5px">點擊代碼可複製</p>`;
+    area.querySelector('.room-code').onclick = function(){ navigator.clipboard.writeText(id); status.textContent='已複製房間代碼！'; };
+    status.textContent = '等待對手加入...';
+  });
+  peer.on('connection', c => {
+    conn = c;
+    status.textContent = '對手已連線！準備開始...';
+    status.className = 'lobby-status connected';
+    conn.on('open', () => {
+      // Host generates first question
+      pvpStartGame(true);
+    });
+    conn.on('data', pvpOnData);
+    conn.on('close', () => { pvpDisconnected(); });
+  });
+  peer.on('error', e => {
+    status.textContent = '連線錯誤：' + e.type;
+    status.className = 'lobby-status error';
+  });
+}
+
+function pvpShowJoin() {
+  const area = document.getElementById('lobbyArea');
+  area.innerHTML = `<p style="margin-bottom:10px">輸入對手的房間代碼：</p>
+    <input type="text" id="joinCode" placeholder="輸入房間代碼" />
+    <br><button class="btn btn-check" onclick="pvpJoinRoom()" style="margin:0 auto">&#x1F517; 加入</button>`;
+}
+
+function pvpJoinRoom() {
+  const code = document.getElementById('joinCode').value.trim();
+  if(!code) return;
+  const status = document.getElementById('lobbyStatus');
+  status.textContent = '正在連線...';
+
+  peer = new Peer();
+  peer.on('open', () => {
+    conn = peer.connect(code, { reliable: true });
+    conn.on('open', () => {
+      status.textContent = '已連線！等待開始...';
+      status.className = 'lobby-status connected';
+      pvpStartGame(false);
+    });
+    conn.on('data', pvpOnData);
+    conn.on('close', () => { pvpDisconnected(); });
+  });
+  peer.on('error', e => {
+    status.textContent = '連線錯誤：' + e.type;
+    status.className = 'lobby-status error';
+  });
+}
+
+function pvpStartGame(isHost) {
+  pvpState = {
+    isHost,
+    myHp: 10, myMaxHp: 10,
+    opHp: 10, opMaxHp: 10,
+    myChar: pick(characters),
+    opChar: pick(characters),
+    currentQuestion: null,
+    answered: false,
+    myCorrect: 0, opCorrect: 0,
+    questionSeed: null,
+    round: 0
+  };
+
+  if(isHost) {
+    pvpNewRound();
+  }
+  // Guest waits for question from host
+}
+
+function pvpNewRound() {
+  const s = pvpState;
+  s.round++;
+  s.answered = false;
+  s.myChar = pick(characters);
+  const q = generateQuestion();
+  s.currentQuestion = q;
+
+  // Send question to opponent
+  conn.send({ type:'question', question: q, round: s.round });
+  pvpRenderBattle();
+}
+
+function pvpOnData(data) {
+  if(!pvpState) return;
+  const s = pvpState;
+
+  if(data.type === 'question') {
+    s.currentQuestion = data.question;
+    s.round = data.round;
+    s.answered = false;
+    s.myChar = pick(characters);
+    pvpRenderBattle();
+  }
+  else if(data.type === 'answered') {
+    if(data.correct) {
+      // Opponent answered correctly => I lose HP
+      s.myHp = Math.max(0, s.myHp - 1);
+      s.opCorrect++;
+    } else {
+      // Opponent answered wrong => they lose HP
+      s.opHp = Math.max(0, s.opHp - 1);
+    }
+    pvpUpdateHpDisplay();
+    if(s.myHp <= 0) {
+      pvpEndGame(false);
+    } else if(s.opHp <= 0) {
+      pvpEndGame(true);
+    }
+  }
+  else if(data.type === 'nextRound') {
+    // Opponent requested next round (they are host this round)
+    // Already handled by 'question' type
+  }
+  else if(data.type === 'end') {
+    pvpEndGame(!data.iWon);
+  }
+}
+
+function pvpRenderBattle() {
+  const s = pvpState;
+  const q = s.currentQuestion;
+  if(!q) return;
+
+  let html = `<div class="score-bar">
+    <div class="score-item"><span class="icon">&#x2694;&#xFE0F;</span><span>第 ${s.round} 回合</span></div>
+    <div class="score-item"><span class="icon">&#x2705;</span><span>我答對</span><span class="score-val">${s.myCorrect}</span></div>
+    <div class="score-item"><span class="icon">&#x1F4A2;</span><span>對手答對</span><span class="score-val">${s.opCorrect}</span></div>
+  </div>`;
+
+  html += `<div class="hp-section" id="hpSection">
+    <div class="hp-bar-wrap p1">
+      <div class="hp-label"><img src="${s.myChar.img}" alt=""/><span class="hp-name">&#x1F499; 我</span><span class="hp-text" id="myHpText">${s.myHp} / ${s.myMaxHp}</span></div>
+      <div class="hp-track"><div class="hp-fill blue" id="myHpFill" style="width:${s.myHp/s.myMaxHp*100}%"></div></div>
+    </div>
+    <div class="hp-bar-wrap p2">
+      <div class="hp-label"><img src="${s.opChar.img}" alt=""/><span class="hp-name">&#x1F49B; 對手</span><span class="hp-text" id="opHpText">${s.opHp} / ${s.opMaxHp}</span></div>
+      <div class="hp-track"><div class="hp-fill pink" id="opHpFill" style="width:${s.opHp/s.opMaxHp*100}%"></div></div>
+    </div>
+  </div>`;
+
+  html += `<div class="main">${buildQuestionHTML(s.myChar, q, {checkFn:'pvpCheck',hintFn:'pvpHint',hideShowAns:true})}</div>`;
+
+  document.getElementById('app').innerHTML = html;
+  bindEnterKey('pvpCheck');
+}
+
+function pvpUpdateHpDisplay() {
+  const s = pvpState;
+  const myF = document.getElementById('myHpFill');
+  const opF = document.getElementById('opHpFill');
+  const myT = document.getElementById('myHpText');
+  const opT = document.getElementById('opHpText');
+  if(myF) myF.style.width = (s.myHp/s.myMaxHp*100)+'%';
+  if(opF) opF.style.width = (s.opHp/s.opMaxHp*100)+'%';
+  if(myT) myT.textContent = `${s.myHp} / ${s.myMaxHp}`;
+  if(opT) opT.textContent = `${s.opHp} / ${s.opMaxHp}`;
+}
+
+function pvpCheck() {
+  const s = pvpState;
+  if(s.answered) return;
+  const result = checkAnswerValues(s.currentQuestion);
+  if(result === null) { showResult('hint','請輸入數字答案哦！'); return; }
+  s.answered = true;
+
+  // Send result to opponent
+  conn.send({ type:'answered', correct: result });
+
+  if(result) {
+    s.myCorrect++;
+    s.opHp = Math.max(0, s.opHp - 1);
+    showResult('correct','&#x2694;&#xFE0F; 答對了！對手 HP -1！');
+    spawnConfetti();
+  } else {
+    s.myHp = Math.max(0, s.myHp - 1);
+    const q = s.currentQuestion;
+    const ansStr = q.type==='system'?`x=${q.answer.x}，y=${q.answer.y}`:`x=${q.answer.x}`;
+    showResult('wrong',`答錯了...你的 HP -1！正確答案：${ansStr}`);
+    showSolution(q);
+  }
+
+  pvpUpdateHpDisplay();
+
+  if(s.myHp <= 0) {
+    conn.send({ type:'end', iWon: false });
+    setTimeout(()=>pvpEndGame(false), 1000);
     return;
   }
-  area.innerHTML = `<div class="result-box ${type}">${msg}</div>` + (area.querySelector('.solution-steps')?.outerHTML || '');
-}
-
-function showSolution() {
-  const area = document.getElementById('resultArea');
-  const stepsHtml = state.currentQuestion.steps.map(s => `<div class="step">${s}</div>`).join('');
-  area.innerHTML += `<div class="solution-steps"><h4>&#x1F4DD; 解題步驟</h4>${stepsHtml}</div>`;
-}
-
-function showNextButton() {
-  const area = document.getElementById('resultArea');
-  area.innerHTML += `<div class="btn-row" style="margin-top:12px"><button class="btn btn-next" onclick="renderQuestion()">&#x27A1; 下一題</button></div>`;
-}
-
-function updateScores() {
-  document.getElementById('correctCount').textContent = state.correct;
-  document.getElementById('wrongCount').textContent = state.wrong;
-  document.getElementById('streakCount').textContent = state.streak;
-}
-
-function showStreak() {
-  const popup = document.getElementById('streakPopup');
-  const msgs = ['&#x1F525; 連續答對！', '&#x1F31F; 超級厲害！', '&#x2B50; 數學天才！', '&#x1F389; 太強了！'];
-  popup.innerHTML = `${pick(msgs)}<br><span style="font-size:0.5em">連續 ${state.streak} 題！</span>`;
-  popup.className = 'streak-popup show';
-  setTimeout(() => { popup.className = 'streak-popup hide'; }, 1500);
-  setTimeout(() => { popup.className = 'streak-popup'; }, 2000);
-}
-
-function spawnConfetti() {
-  const container = document.getElementById('confetti');
-  const colors = ['#F4A7B9', '#87CEEB', '#98D4A6', '#FFD54F', '#F5C49C', '#D8A8E8'];
-  for (let i = 0; i < 40; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.left = Math.random() * 100 + 'vw';
-    piece.style.background = pick(colors);
-    piece.style.animationDelay = Math.random() * 0.8 + 's';
-    piece.style.animationDuration = (1.5 + Math.random()) + 's';
-    piece.style.width = (6 + Math.random() * 8) + 'px';
-    piece.style.height = (6 + Math.random() * 8) + 'px';
-    piece.style.borderRadius = Math.random() < 0.5 ? '50%' : '2px';
-    container.appendChild(piece);
+  if(s.opHp <= 0) {
+    conn.send({ type:'end', iWon: true });
+    setTimeout(()=>pvpEndGame(true), 1000);
+    return;
   }
-  setTimeout(() => { container.innerHTML = ''; }, 3000);
-}
 
-// ===== Background Decorations =====
-function initBgDecos() {
-  const emojis = ['&#x1F43B;&#x200D;&#x2744;', '&#x1F427;', '&#x1F969;', '&#x1F431;', '&#x1F98E;', '&#x1F364;', '&#x1F4AE;', '&#x1F331;', '&#x1F40C;', '&#x1FAB6;', '&#x1F426;'];
-  const container = document.getElementById('bgDecos');
-  for (let i = 0; i < 15; i++) {
-    const d = document.createElement('div');
-    d.className = 'bg-deco';
-    d.innerHTML = emojis[i % emojis.length];
-    d.style.left = Math.random() * 95 + '%';
-    d.style.top = Math.random() * 95 + '%';
-    d.style.fontSize = (25 + Math.random() * 30) + 'px';
-    d.style.transform = `rotate(${Math.random() * 60 - 30}deg)`;
-    container.appendChild(d);
+  // Show next round button - alternate who generates questions
+  const area = document.getElementById('resultArea');
+  if(area) {
+    area.innerHTML += `<div class="btn-row" style="margin-top:12px"><button class="btn btn-next" onclick="pvpRequestNext()">&#x27A1; 下一回合</button></div>`;
   }
 }
 
-// ===== Settings =====
-document.getElementById('settingsBtn').addEventListener('click', () => {
+function pvpHint(){ if(!pvpState.answered) showResult('hint', pvpState.currentQuestion.hint); }
+
+function pvpRequestNext() {
+  // Both sides can generate - just have the clicker generate
+  pvpNewRound();
+}
+
+function pvpEndGame(won) {
+  spawnConfetti();
+  const s = pvpState;
+  document.getElementById('app').innerHTML = `
+    <div class="end-screen"><div class="end-card">
+      <div class="end-icon">${won?'&#x1F3C6;':'&#x1F4A5;'}</div>
+      <h2>${won?'你贏了！':'你輸了...'}</h2>
+      <p>共進行 ${s.round} 回合</p>
+      <p>你答對 ${s.myCorrect} 題 / 對手答對 ${s.opCorrect} 題</p>
+      <div class="btn-row" style="justify-content:center;margin-top:20px">
+        <button class="btn btn-back" onclick="pvpCleanup();showModeSelect()">&#x1F3E0; 回主選單</button>
+      </div>
+    </div></div>`;
+}
+
+function pvpDisconnected() {
+  const status = document.getElementById('lobbyStatus');
+  if(status) { status.textContent='對手已斷線'; status.className='lobby-status error'; }
+  if(pvpState && pvpState.round > 0) {
+    pvpEndGame(true); // Opponent disconnected = win
+  }
+}
+
+// ========== SETTINGS ==========
+document.getElementById('settingsBtn').addEventListener('click',()=>{
   document.getElementById('settingsPanel').classList.toggle('show');
 });
 
-// ===== Init =====
+// ========== INIT ==========
 initBgDecos();
-renderQuestion();
+showModeSelect();
 </script>
 </body>
 </html>
