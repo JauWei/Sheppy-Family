@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>角落生物數學教室 | Sumikko Gurashi Math</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box}
@@ -248,8 +248,7 @@ function generateQuestion(diff){
 let gameMode = null; // 'solo' | 'pvp'
 let soloState = null;
 let pvpState = null;
-let peer = null;
-let conn = null;
+// MQTT client managed in pvp functions
 
 // ========== SHARED UI HELPERS ==========
 function showStreakAnim(streak){
@@ -573,121 +572,116 @@ function showPvpLobby() {
     </div>`;
 }
 
-// PeerJS config — STUN only (no expired TURN credentials that stall ICE)
-const PEER_CONFIG = {
-  debug: 2, // show connection logs in console for debugging
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
-    ]
-  }
-};
+// ========================================================
+//  PVP via MQTT (HiveMQ free public broker — no NAT issues)
+// ========================================================
+const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+let mqttClient = null;
+let mqttRoom = null;  // room code
+let mqttRole = null;  // 'host' or 'guest'
 
 function makeRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'SG-';
+  let code = '';
   for(let i=0;i<5;i++) code += chars[Math.floor(Math.random()*chars.length)];
   return code;
 }
 
-function pvpCleanup() {
-  if(conn) { try{conn.close()}catch(e){} conn=null; }
-  if(peer) { try{peer.destroy()}catch(e){} peer=null; }
+function mqttTopic(room, target) {
+  // target: 'host' or 'guest' — the recipient
+  return `sumikko-math/${room}/${target}`;
 }
 
-// Shared helper: wire up a DataConnection and start the game once open
-function setupConnection(c, isHost) {
-  conn = c;
-  let started = false;
+function mqttSend(data) {
+  if(!mqttClient || !mqttClient.connected) { console.warn('[MQTT] Not connected'); return; }
+  const target = mqttRole === 'host' ? 'guest' : 'host';
+  const topic = mqttTopic(mqttRoom, target);
+  mqttClient.publish(topic, JSON.stringify(data), { qos: 1 });
+}
 
-  function beginGame() {
-    if(started) return;
-    started = true;
-    console.log('[PVP] Data channel open, starting game as', isHost?'host':'guest');
-    pvpStartGame(isHost);
+function pvpCleanup() {
+  if(mqttClient) {
+    try { mqttClient.end(true); } catch(e){}
+    mqttClient = null;
   }
-
-  c.on('data', data => { pvpOnData(data); });
-  c.on('close', () => { pvpDisconnected(); });
-  c.on('error', e => { console.error('[PVP] conn error:', e); });
-
-  // Start game as soon as data channel is open
-  if(c.open) {
-    beginGame();
-  } else {
-    c.on('open', () => { beginGame(); });
-  }
-
-  // Fallback: if still not started after 5s, force start (channel might be open but event missed)
-  setTimeout(() => {
-    if(!started && conn && !conn.destroyed) {
-      console.warn('[PVP] Fallback: forcing game start');
-      beginGame();
-    }
-  }, 5000);
+  mqttRoom = null;
+  mqttRole = null;
 }
 
 function pvpCreateRoom() {
   pvpCleanup();
   const area = document.getElementById('lobbyArea');
   const status = document.getElementById('lobbyStatus');
-  status.textContent = '正在建立房間...';
+  status.textContent = '正在連線到伺服器...';
   status.className = 'lobby-status';
 
-  const roomId = makeRoomCode();
-  peer = new Peer(roomId, PEER_CONFIG);
+  mqttRoom = makeRoomCode();
+  mqttRole = 'host';
 
-  peer.on('open', id => {
-    console.log('[PVP] Host peer open, id:', id);
-    area.innerHTML = `<p style="margin-bottom:8px">把這個房間代碼傳給對手：</p>
-      <div class="room-code" id="roomCodeDisplay">${id}</div>
-      <p style="font-size:.8em;color:var(--text-medium);margin-top:5px">點擊代碼可複製</p>`;
-    document.getElementById('roomCodeDisplay').onclick = function(){
-      navigator.clipboard.writeText(id).then(()=>{
-        status.textContent='已複製！等待對手加入...';
-      });
-    };
-    status.textContent = '房間已建立！等待對手加入...';
+  mqttClient = mqtt.connect(MQTT_BROKER, {
+    clientId: 'sg-host-' + mqttRoom + '-' + Date.now(),
+    clean: true,
+    connectTimeout: 10000,
+    keepalive: 30
   });
 
-  peer.on('connection', c => {
-    console.log('[PVP] Host received connection, open?', c.open);
-    status.textContent = '對手已連線！建立資料通道中...';
-    status.className = 'lobby-status connected';
-    setupConnection(c, true);
+  mqttClient.on('connect', () => {
+    console.log('[MQTT] Host connected, room:', mqttRoom);
+    // Subscribe to messages sent TO host
+    mqttClient.subscribe(mqttTopic(mqttRoom, 'host'), { qos: 1 }, (err) => {
+      if(err) { status.textContent = '訂閱失敗：' + err.message; return; }
+      area.innerHTML = `<p style="margin-bottom:8px">把這個房間代碼傳給對手：</p>
+        <div class="room-code" id="roomCodeDisplay">${mqttRoom}</div>
+        <p style="font-size:.8em;color:var(--text-medium);margin-top:5px">點擊代碼可複製</p>`;
+      document.getElementById('roomCodeDisplay').onclick = function(){
+        navigator.clipboard.writeText(mqttRoom).then(()=>{
+          status.textContent='已複製！等待對手加入...';
+        });
+      };
+      status.textContent = '房間已建立！等待對手加入...';
+    });
   });
 
-  peer.on('error', e => {
-    console.error('[PVP] Host peer error:', e);
-    if(e.type === 'unavailable-id') {
-      status.textContent = '房間代碼衝突，重新建立中...';
-      setTimeout(() => pvpCreateRoom(), 500);
-    } else {
-      status.textContent = '連線錯誤：' + e.type;
-      status.className = 'lobby-status error';
-      area.innerHTML += `<div class="btn-row" style="justify-content:center;margin-top:12px">
-        <button class="btn btn-check" onclick="pvpCreateRoom()">&#x1F504; 重試</button></div>`;
-    }
+  mqttClient.on('message', (topic, msg) => {
+    try {
+      const data = JSON.parse(msg.toString());
+      if(data.type === 'join') {
+        status.textContent = '對手已加入！開始遊戲...';
+        status.className = 'lobby-status connected';
+        // Confirm to guest
+        mqttSend({ type: 'joined' });
+        setTimeout(() => pvpStartGame(true), 500);
+      } else {
+        pvpOnData(data);
+      }
+    } catch(e) { console.error('[MQTT] Parse error:', e); }
   });
 
-  peer.on('disconnected', () => {
-    if(peer && !peer.destroyed) { peer.reconnect(); }
+  mqttClient.on('error', e => {
+    console.error('[MQTT] Error:', e);
+    status.textContent = '連線錯誤，請重試';
+    status.className = 'lobby-status error';
+    area.innerHTML += `<div class="btn-row" style="justify-content:center;margin-top:12px">
+      <button class="btn btn-check" onclick="pvpCreateRoom()">&#x1F504; 重試</button></div>`;
+  });
+
+  mqttClient.on('offline', () => {
+    status.textContent = '伺服器離線，重新連線中...';
+  });
+
+  mqttClient.on('reconnect', () => {
+    status.textContent = '重新連線中...';
   });
 }
 
 function pvpShowJoin() {
   const area = document.getElementById('lobbyArea');
   area.innerHTML = `<p style="margin-bottom:10px">輸入對手的房間代碼：</p>
-    <input type="text" id="joinCode" placeholder="例如：SG-ABC12" style="text-transform:uppercase"/>
+    <input type="text" id="joinCode" placeholder="例如：ABC12" style="text-transform:uppercase"/>
     <br><button class="btn btn-check" id="joinBtn" onclick="pvpJoinRoom()" style="margin:0 auto">&#x1F517; 加入</button>`;
   document.getElementById('joinCode').addEventListener('keydown', e => { if(e.key==='Enter') pvpJoinRoom(); });
 }
 
-let pvpJoinRetry = 0;
 function pvpJoinRoom() {
   const codeInput = document.getElementById('joinCode');
   const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
@@ -695,53 +689,77 @@ function pvpJoinRoom() {
   const status = document.getElementById('lobbyStatus');
   const joinBtn = document.getElementById('joinBtn');
   if(joinBtn) joinBtn.disabled = true;
-  status.textContent = '正在連線到 ' + code + '...';
+  status.textContent = '正在連線到伺服器...';
   status.className = 'lobby-status';
 
   pvpCleanup();
-  pvpJoinRetry = 0;
+  mqttRoom = code;
+  mqttRole = 'guest';
 
-  peer = new Peer(PEER_CONFIG);
-  peer.on('open', () => {
-    console.log('[PVP] Guest peer open, connecting to:', code);
-    pvpAttemptConnect(code);
+  mqttClient = mqtt.connect(MQTT_BROKER, {
+    clientId: 'sg-guest-' + code + '-' + Date.now(),
+    clean: true,
+    connectTimeout: 10000,
+    keepalive: 30
   });
-  peer.on('error', e => {
-    console.error('[PVP] Guest peer error:', e);
-    if(e.type === 'peer-unavailable') {
-      pvpJoinRetry++;
-      if(pvpJoinRetry <= 3) {
-        status.textContent = `找不到房間 ${code}，第 ${pvpJoinRetry} 次重試中...`;
-        setTimeout(() => pvpAttemptConnect(code), 2000);
-      } else {
-        status.textContent = `找不到房間 ${code}。請確認對方已建立房間且代碼正確。`;
-        status.className = 'lobby-status error';
-        if(joinBtn) joinBtn.disabled = false;
-        const area = document.getElementById('lobbyArea');
-        if(area && !area.querySelector('.retry-btn')) {
-          area.innerHTML += `<div class="btn-row retry-btn" style="justify-content:center;margin-top:12px">
-            <button class="btn btn-check" onclick="pvpJoinRetry=0;pvpJoinRoom()">&#x1F504; 重試</button></div>`;
-        }
+
+  mqttClient.on('connect', () => {
+    console.log('[MQTT] Guest connected, joining room:', code);
+    status.textContent = '已連線！正在加入房間 ' + code + '...';
+    // Subscribe to messages sent TO guest
+    mqttClient.subscribe(mqttTopic(code, 'guest'), { qos: 1 }, (err) => {
+      if(err) { status.textContent = '訂閱失敗：' + err.message; return; }
+      // Tell host we joined
+      mqttSend({ type: 'join' });
+      status.textContent = '已加入房間！等待對方開始...';
+      status.className = 'lobby-status connected';
+    });
+  });
+
+  let gameStarted = false;
+  mqttClient.on('message', (topic, msg) => {
+    try {
+      const data = JSON.parse(msg.toString());
+      if(data.type === 'joined' && !gameStarted) {
+        gameStarted = true;
+        status.textContent = '對方已確認！開始遊戲...';
+        pvpStartGame(false);
+      } else if(gameStarted) {
+        pvpOnData(data);
       }
-    } else {
-      status.textContent = '連線錯誤：' + e.type;
+    } catch(e) { console.error('[MQTT] Parse error:', e); }
+  });
+
+  mqttClient.on('error', e => {
+    console.error('[MQTT] Error:', e);
+    status.textContent = '連線錯誤：' + e.message;
+    status.className = 'lobby-status error';
+    if(joinBtn) joinBtn.disabled = false;
+  });
+
+  // Timeout: if no response from host after 10s
+  setTimeout(() => {
+    if(!gameStarted && mqttClient && mqttClient.connected) {
+      // Retry sending join
+      mqttSend({ type: 'join' });
+    }
+  }, 5000);
+
+  setTimeout(() => {
+    if(!gameStarted) {
+      status.textContent = `房間 ${code} 無回應。請確認對方已建立房間且代碼正確。`;
       status.className = 'lobby-status error';
       if(joinBtn) joinBtn.disabled = false;
+      const area = document.getElementById('lobbyArea');
+      if(area && !area.querySelector('.retry-btn')) {
+        area.innerHTML += `<div class="btn-row retry-btn" style="justify-content:center;margin-top:12px">
+          <button class="btn btn-check" onclick="pvpJoinRoom()">&#x1F504; 重試</button></div>`;
+      }
     }
-  });
+  }, 15000);
 }
 
-function pvpAttemptConnect(code) {
-  if(!peer || peer.destroyed) return;
-  // Use default serialization (binary) — must match both sides
-  const c = peer.connect(code, { reliable: true });
-  console.log('[PVP] Guest connecting to', code, 'conn open?', c.open);
-
-  const status = document.getElementById('lobbyStatus');
-  if(status) { status.textContent = '已找到房間，建立資料通道中...'; }
-
-  setupConnection(c, false);
-}
+// ========== PVP GAME LOGIC ==========
 
 function pvpStartGame(isHost) {
   pvpState = {
@@ -753,7 +771,6 @@ function pvpStartGame(isHost) {
     currentQuestion: null,
     answered: false,
     myCorrect: 0, opCorrect: 0,
-    questionSeed: null,
     round: 0
   };
 
@@ -771,8 +788,8 @@ function pvpNewRound() {
   const q = generateQuestion();
   s.currentQuestion = q;
 
-  // Send question to opponent
-  conn.send({ type:'question', question: q, round: s.round });
+  // Send question to opponent via MQTT
+  mqttSend({ type:'question', question: q, round: s.round });
   pvpRenderBattle();
 }
 
@@ -789,26 +806,20 @@ function pvpOnData(data) {
   }
   else if(data.type === 'answered') {
     if(data.correct) {
-      // Opponent answered correctly => I lose HP
       s.myHp = Math.max(0, s.myHp - 1);
       s.opCorrect++;
     } else {
-      // Opponent answered wrong => they lose HP
       s.opHp = Math.max(0, s.opHp - 1);
     }
     pvpUpdateHpDisplay();
-    if(s.myHp <= 0) {
-      pvpEndGame(false);
-    } else if(s.opHp <= 0) {
-      pvpEndGame(true);
-    }
-  }
-  else if(data.type === 'nextRound') {
-    // Opponent requested next round (they are host this round)
-    // Already handled by 'question' type
+    if(s.myHp <= 0) pvpEndGame(false);
+    else if(s.opHp <= 0) pvpEndGame(true);
   }
   else if(data.type === 'end') {
     pvpEndGame(!data.iWon);
+  }
+  else if(data.type === 'disconnect') {
+    pvpEndGame(true);
   }
 }
 
@@ -859,8 +870,8 @@ function pvpCheck() {
   if(result === null) { showResult('hint','請輸入數字答案哦！'); return; }
   s.answered = true;
 
-  // Send result to opponent
-  conn.send({ type:'answered', correct: result });
+  // Send result to opponent via MQTT
+  mqttSend({ type:'answered', correct: result });
 
   if(result) {
     s.myCorrect++;
@@ -878,17 +889,16 @@ function pvpCheck() {
   pvpUpdateHpDisplay();
 
   if(s.myHp <= 0) {
-    conn.send({ type:'end', iWon: false });
+    mqttSend({ type:'end', iWon: false });
     setTimeout(()=>pvpEndGame(false), 1000);
     return;
   }
   if(s.opHp <= 0) {
-    conn.send({ type:'end', iWon: true });
+    mqttSend({ type:'end', iWon: true });
     setTimeout(()=>pvpEndGame(true), 1000);
     return;
   }
 
-  // Show next round button - alternate who generates questions
   const area = document.getElementById('resultArea');
   if(area) {
     area.innerHTML += `<div class="btn-row" style="margin-top:12px"><button class="btn btn-next" onclick="pvpRequestNext()">&#x27A1; 下一回合</button></div>`;
@@ -898,7 +908,6 @@ function pvpCheck() {
 function pvpHint(){ if(!pvpState.answered) showResult('hint', pvpState.currentQuestion.hint); }
 
 function pvpRequestNext() {
-  // Both sides can generate - just have the clicker generate
   pvpNewRound();
 }
 
@@ -918,10 +927,8 @@ function pvpEndGame(won) {
 }
 
 function pvpDisconnected() {
-  const status = document.getElementById('lobbyStatus');
-  if(status) { status.textContent='對手已斷線'; status.className='lobby-status error'; }
   if(pvpState && pvpState.round > 0) {
-    pvpEndGame(true); // Opponent disconnected = win
+    pvpEndGame(true);
   }
 }
 
