@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Travel Pin Map - 旅行地圖</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <style>
 :root {
@@ -526,8 +526,7 @@ body {
 <input type="file" id="photoInput" accept="image/*" multiple style="display:none">
 
 <!-- SCRIPTS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="console.warn('Supabase SDK failed to load, local mode only')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 // =============================================
 // CONFIG - 請填入你的 Supabase 設定
@@ -535,15 +534,7 @@ body {
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-let supabaseClient = null;
-try {
-  if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-} catch(e) {
-  console.warn('Supabase init failed:', e);
-}
-const supabase = supabaseClient;
+let supabase = null;
 
 // =============================================
 // STATE
@@ -1316,9 +1307,23 @@ function onAuthChange() {
 // =============================================
 // INIT
 // =============================================
+function initSupabase() {
+  try {
+    if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('Supabase connected');
+    }
+  } catch(e) {
+    console.warn('Supabase init failed:', e);
+    supabase = null;
+  }
+}
+
 async function init() {
-  // Check if Supabase is configured
-  if (!supabase || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+  // Try to init Supabase (SDK may have loaded async)
+  initSupabase();
+
+  if (!supabase) {
     console.log('Supabase not configured, running in local mode');
     localMode = true;
     loadPins();
@@ -1336,7 +1341,6 @@ async function init() {
       loadPins();
     }
 
-    // Listen for auth changes
     supabase.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user || null;
       if (!currentUser) localMode = true;
@@ -1348,7 +1352,27 @@ async function init() {
   }
 }
 
-init();
+// Load Supabase SDK asynchronously (never blocks map)
+(function() {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+  s.async = true;
+  s.onload = () => init();
+  s.onerror = () => {
+    console.warn('Supabase SDK failed to load, local mode only');
+    localMode = true;
+    loadPins();
+  };
+  document.head.appendChild(s);
+})();
+
+// If Supabase SDK takes too long, start in local mode anyway
+setTimeout(() => {
+  if (pins.length === 0 && !currentUser) {
+    localMode = true;
+    loadPins();
+  }
+}, 3000);
 </script>
 </body>
 </html>
