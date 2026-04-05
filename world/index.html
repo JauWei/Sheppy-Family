@@ -352,6 +352,22 @@ var tempPhotos=[],localMode=false,countryLayer=null,clusterGroup=null,cityCircle
 var filterContinent='',filterYear='',searchTimer=null;
 var isTouchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 
+/* Resize image for localStorage (max 600px, JPEG 0.6) */
+function resizeImage(dataUrl,maxW,maxH,quality){
+  return new Promise(function(resolve){
+    var img=new Image();img.onload=function(){
+      var w=img.width,h=img.height;
+      if(w>maxW||h>maxH){var r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r)}
+      var c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg',quality||0.6));
+    };img.onerror=function(){resolve(dataUrl)};img.src=dataUrl;
+  });
+}
+
+/* ISO alpha-2 to alpha-3 mapping for country coloring */
+var CC2TO3={"af":"AFG","al":"ALB","dz":"DZA","as":"ASM","ad":"AND","ao":"AGO","ag":"ATG","ar":"ARG","am":"ARM","au":"AUS","at":"AUT","az":"AZE","bs":"BHS","bh":"BHR","bd":"BGD","bb":"BRB","by":"BLR","be":"BEL","bz":"BLZ","bj":"BEN","bt":"BTN","bo":"BOL","ba":"BIH","bw":"BWA","br":"BRA","bn":"BRN","bg":"BGR","bf":"BFA","bi":"BDI","kh":"KHM","cm":"CMR","ca":"CAN","cv":"CPV","cf":"CAF","td":"TCD","cl":"CHL","cn":"CHN","co":"COL","km":"COM","cg":"COG","cd":"COD","cr":"CRI","ci":"CIV","hr":"HRV","cu":"CUB","cy":"CYP","cz":"CZE","dk":"DNK","dj":"DJI","dm":"DMA","do":"DOM","ec":"ECU","eg":"EGY","sv":"SLV","gq":"GNQ","er":"ERI","ee":"EST","et":"ETH","fj":"FJI","fi":"FIN","fr":"FRA","ga":"GAB","gm":"GMB","ge":"GEO","de":"DEU","gh":"GHA","gr":"GRC","gd":"GRD","gt":"GTM","gn":"GIN","gw":"GNB","gy":"GUY","ht":"HTI","hn":"HND","hu":"HUN","is":"ISL","in":"IND","id":"IDN","ir":"IRN","iq":"IRQ","ie":"IRL","il":"ISR","it":"ITA","jm":"JAM","jp":"JPN","jo":"JOR","kz":"KAZ","ke":"KEN","ki":"KIR","kp":"PRK","kr":"KOR","kw":"KWT","kg":"KGZ","la":"LAO","lv":"LVA","lb":"LBN","ls":"LSO","lr":"LBR","ly":"LBY","li":"LIE","lt":"LTU","lu":"LUX","mk":"MKD","mg":"MDG","mw":"MWI","my":"MYS","mv":"MDV","ml":"MLI","mt":"MLT","mh":"MHL","mr":"MRT","mu":"MUS","mx":"MEX","fm":"FSM","md":"MDA","mc":"MCO","mn":"MNG","me":"MNE","ma":"MAR","mz":"MOZ","mm":"MMR","na":"NAM","nr":"NRU","np":"NPL","nl":"NLD","nz":"NZL","ni":"NIC","ne":"NER","ng":"NGA","no":"NOR","om":"OMN","pk":"PAK","pw":"PLW","pa":"PAN","pg":"PNG","py":"PRY","pe":"PER","ph":"PHL","pl":"POL","pt":"PRT","qa":"QAT","ro":"ROU","ru":"RUS","rw":"RWA","kn":"KNA","lc":"LCA","vc":"VCT","ws":"WSM","sm":"SMR","st":"STP","sa":"SAU","sn":"SEN","rs":"SRB","sc":"SYC","sl":"SLE","sg":"SGP","sk":"SVK","si":"SVN","sb":"SLB","so":"SOM","za":"ZAF","ss":"SSD","es":"ESP","lk":"LKA","sd":"SDN","sr":"SUR","sz":"SWZ","se":"SWE","ch":"CHE","sy":"SYR","tw":"TWN","tj":"TJK","tz":"TZA","th":"THA","tl":"TLS","tg":"TGO","to":"TON","tt":"TTO","tn":"TUN","tr":"TUR","tm":"TKM","tv":"TUV","ug":"UGA","ua":"UKR","ae":"ARE","gb":"GBR","us":"USA","uy":"URY","uz":"UZB","vu":"VUT","ve":"VEN","vn":"VNM","ye":"YEM","zm":"ZMB","zw":"ZWE","xk":"XKX","ps":"PSE","hk":"HKG","mo":"MAC","eh":"ESH","nc":"NCL","pf":"PYF","gf":"GUF","gp":"GLP","mq":"MTQ","re":"REU","yt":"MYT","gl":"GRL","aw":"ABW","cw":"CUW","sx":"SXM","bm":"BMU","ky":"CYM","vg":"VGB","vi":"VIR","gu":"GUM","mp":"MNP","pr":"PRI","fk":"FLK","fo":"FRO","gi":"GIB","gg":"GGY","im":"IMN","je":"JEY","ax":"ALA","sj":"SJM","ck":"COK","nu":"NIU","tk":"TKL","wf":"WLF","ai":"AIA","ms":"MSR","sh":"SHN","tc":"TCA","io":"IOT","cx":"CXR","cc":"CCK","nf":"NFK","pn":"PCN","bl":"BLM","mf":"MAF","pm":"SPM"};
+
 var PIN_COLORS=['#EF4444','#F59E0B','#22C55E','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#64748B'];
 var PIN_ICONS=[
   {id:'default',icon:'fa-location-dot',label:'標準'},{id:'star',icon:'fa-star',label:'星星'},
@@ -434,11 +450,24 @@ function updateCountryColors(){
   var countryPins=visited.filter(function(p){return(p.color_scope||'country')==='country'});
   var cityPins=visited.filter(function(p){return p.color_scope==='city'});
 
-  // Country-level: precise point-in-polygon
+  // Build set of alpha-3 codes from visited country pins
+  var visitedA3={};
+  countryPins.forEach(function(p){
+    var cc=(p.country_code||'').toLowerCase();
+    var a3=CC2TO3[cc];
+    if(a3)visitedA3[a3]=true;
+  });
+
+  // Country-level: match by country code (alpha-3), fallback to point-in-polygon
   if(countryLayer){
     countryLayer.eachLayer(function(layer){
-      var geom=layer.feature.geometry;
-      var hit=countryPins.some(function(p){return ptInGeometry(p.latitude,p.longitude,geom)});
+      var fid=layer.feature.id||''; // GeoJSON id is alpha-3
+      var hit=!!visitedA3[fid];
+      // Fallback: if pin has no country_code, use point-in-polygon
+      if(!hit){
+        var geom=layer.feature.geometry;
+        hit=countryPins.some(function(p){return!p.country_code&&ptInGeometry(p.latitude,p.longitude,geom)});
+      }
       layer.setStyle({fillOpacity:hit?.2:0,fillColor:'#22C55E',weight:hit?1.5:.5,color:hit?'#16A34A':'#CBD5E1',opacity:hit?.8:.3});
     });
   }
@@ -571,10 +600,21 @@ async function savePin(){
   currentPin.color_scope=document.getElementById('pinColorScope').value;currentPin.city_radius=parseInt(document.getElementById('pinCityRadius').value)||15;
   if(localMode||!supabase||!currentUser){
     if(!currentPin.id)currentPin.id='local_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
-    currentPin.photos=tempPhotos.map(function(p){return typeof p==='string'?p:(p.photo_url||p.url)});
+    // Resize photos to save localStorage space
+    var rawPhotos=tempPhotos.map(function(p){return typeof p==='string'?p:(p.photo_url||p.url)});
+    try{
+      var resized=[];
+      for(var i=0;i<rawPhotos.length;i++){
+        var u=rawPhotos[i];
+        if(u&&u.indexOf('data:')===0){u=await resizeImage(u,600,600,0.5)}
+        resized.push(u);
+      }
+      currentPin.photos=resized;
+    }catch(re){currentPin.photos=rawPhotos}
     var idx=pins.findIndex(function(p){return p.id===currentPin.id});
     if(idx>=0)pins[idx]=JSON.parse(JSON.stringify(currentPin));else pins.push(JSON.parse(JSON.stringify(currentPin)));
-    saveToLocal();refreshMarkers();closePinCard();return;
+    try{saveToLocal()}catch(se){alert('儲存失敗：照片太大或空間不足，請減少照片數量。');return}
+    refreshMarkers();closePinCard();return;
   }
   try{
     var d={user_id:currentUser.id,latitude:currentPin.latitude,longitude:currentPin.longitude,country_name:currentPin.country_name,city_name:currentPin.city_name,category:currentPin.category,pin_color:currentPin.pin_color,pin_icon:currentPin.pin_icon,year:currentPin.year,reason:currentPin.reason,budget:currentPin.budget,notes:currentPin.notes||'',country_code:currentPin.country_code||'',color_scope:currentPin.color_scope||'country',city_radius:currentPin.city_radius||15};
@@ -605,7 +645,7 @@ async function loadPins(){
     refreshMarkers();
   }catch(err){console.error('Load error:',err);localMode=true;loadPins()}
 }
-function saveToLocal(){localStorage.setItem('travel_map_pins',JSON.stringify(pins))}
+function saveToLocal(){try{localStorage.setItem('travel_map_pins',JSON.stringify(pins))}catch(e){throw new Error('localStorage 空間不足')}}
 
 /* REVERSE GEOCODE */
 async function reverseGeocode(lat,lng,target){
