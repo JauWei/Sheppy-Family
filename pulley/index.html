@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>角落生物滑輪教室 | Sumikko Gurashi Pulley</title>
+<title>角落生物簡單機械教室 | Sumikko Gurashi Simple Machines</title>
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -82,6 +82,9 @@
   .q-type.fixed{background:#E3F2FD;color:#1565C0}
   .q-type.movable{background:#FFF3E0;color:#E65100}
   .q-type.combo{background:#F3E5F5;color:#7B1FA2}
+  .q-type.lever{background:#E8F5E9;color:#2E7D32}
+  .q-type.axle{background:#FFF8E1;color:#F57F17}
+  .q-type.gear{background:#FCE4EC;color:#C2185B}
   .pulley-diagram{background:#f9f9f9;border-radius:12px;padding:15px;margin:10px 0;text-align:center}
   .pulley-diagram svg{max-width:280px;width:100%}
   .math-display{background:linear-gradient(135deg,#FAFAFA,#F5F5F5);border-radius:16px;padding:20px;margin-bottom:18px;text-align:center;font-size:1.5em;font-weight:700;color:var(--text-dark);border:2px solid #eee;line-height:1.8}
@@ -167,9 +170,9 @@
 <div class="confetti-container" id="confetti"></div>
 
 <div class="header">
-  <h1>角落生物滑輪教室</h1>
-  <p id="headerSub">和角落小夥伴一起學滑輪吧！</p>
-  <p style="font-size:.7em;opacity:.5;position:relative;z-index:1">v1.0-mqtt</p>
+  <h1>角落生物簡單機械教室</h1>
+  <p id="headerSub">和角落小夥伴一起學簡單機械吧！</p>
+  <p style="font-size:.7em;opacity:.5;position:relative;z-index:1">v2.0-mqtt</p>
 </div>
 
 <div id="app"></div>
@@ -184,13 +187,16 @@
       <option value="fixed">定滑輪</option>
       <option value="movable">動滑輪</option>
       <option value="combo">滑輪組</option>
+      <option value="lever">槓桿</option>
+      <option value="axle">輪軸</option>
+      <option value="gear">齒輪</option>
     </select>
   </div>
   <div class="setting-item">
     <span>難度</span>
     <select id="difficulty">
-      <option value="easy">國小</option>
-      <option value="hard" selected>國中</option>
+      <option value="easy" selected>國小</option>
+      <option value="hard">國中</option>
     </select>
   </div>
 </div>
@@ -199,20 +205,20 @@
 // ========== CHARACTER DATA ==========
 const IMG_BASE = 'https://www.san-x.co.jp/uploads/';
 const characters = [
-  { id:'shirokuma',name:'白熊',nameJP:'しろくま',color:'#F5F0E8',borderColor:'#E8DFD0',desc:'怕冷的北極熊，從北方逃到南方，喜歡喝熱茶和蓋棉被。',speeches:['用滑輪把暖爐拉過來吧～','定滑輪可以改變力的方向呢！','動滑輪好省力，搬行李方便多了！','一邊喝熱茶一邊學滑輪吧！'],img:IMG_BASE+'1769160910869-6ah340f176m/1.webp'},
-  { id:'penguin',name:'企鵝？',nameJP:'ぺんぎん？',color:'#B8D4A8',borderColor:'#A0C490',desc:'不確定自己是不是企鵝，頭上好像曾經有個盤子，每天都在尋找自我。',speeches:['我到底是不是企鵝呢...先學滑輪吧？','用定滑輪從井裡打水好方便！','動滑輪能省一半的力呢～','邊吃小黃瓜邊研究滑輪～'],img:IMG_BASE+'1769160911896-hktlduhyts4/2.webp'},
-  { id:'tonkatsu',name:'炸豬排',nameJP:'とんかつ',color:'#F5D6B8',borderColor:'#E8C4A0',desc:'炸豬排邊邊的肉，99%是油脂，因為太油被吃剩下來，希望有天能被吃掉。',speeches:['用滑輪把我從盤子邊拉回來！','雖然被剩下了...但滑輪知識不會被剩下！','希望像滑輪一樣被需要...','99%是油脂，但100%懂滑輪！'],img:IMG_BASE+'1769160912753-mwcvofiw1hb/3.webp'},
-  { id:'neko',name:'貓',nameJP:'ねこ',color:'#F5E6A0',borderColor:'#E8D888',desc:'害羞的貓咪，喜歡躲在角落磨牆壁，很在意身材但又愛吃東西。',speeches:['用滑輪把魚拉上來吃～喵！','窗簾用的就是定滑輪呢！','喵～滑輪好有趣！','動滑輪會跟著物體一起動呢...'],img:IMG_BASE+'1769160913779-hxpekre7c8/4.webp'},
-  { id:'tokage',name:'蜥蜴',nameJP:'とかげ',color:'#A8D8D8',borderColor:'#90C4C4',desc:'其實是倖存的恐龍，偽裝成蜥蜴生活，很想念住在海裡的媽媽。',speeches:['噓...用滑輪把秘密藏到高處吧！','好想用滑輪組把媽媽從湖裡拉上來...','偽裝成蜥蜴也要認真學滑輪呢！','游泳和滑輪都難不倒我～'],img:IMG_BASE+'1769160914647-qw2yqsyzgxo/5.webp'},
-  { id:'ebifurai',name:'炸蝦尾',nameJP:'えびふらいのしっぽ',color:'#F5C49C',borderColor:'#E0AE80',desc:'因為太硬被吃剩的炸蝦尾巴，和炸豬排是好朋友。',speeches:['雖然硬硬的不好咬...但滑輪題我咬得動！','和炸豬排一起學滑輪最開心了～','以前身體好長好長...現在腦袋要變長！','炸蝦尾也能解出滑輪題哦！'],img:IMG_BASE+'1769160915458-c4rz2zaocsb/6.webp'},
-  { id:'tapioca',name:'粉圓',nameJP:'たぴおか',color:'#FFF8DC',borderColor:'#E8E0C0',desc:'珍珠奶茶裡被喝剩的粉圓，因為不好吸所以被放棄。',speeches:['......（盯著滑輪題看）','不好吸沒關係，滑輪題我會解！','（模仿計算機的樣子）嗶嗶～','粉圓很多，答案只有一個！'],img:IMG_BASE+'1769160916269-4r3gjdtlyjf/7.webp'},
-  { id:'furoshiki',name:'裹布',nameJP:'ふろしき',color:'#F2C6D0',borderColor:'#E0AAB8',desc:'白熊的行李布，常被拿來當野餐墊、靠墊。',speeches:['被白熊裹著好溫暖～一起學滑輪吧！','我可以變成各種形狀，滑輪也有很多變化呢！','攤開來當作滑輪筆記本～','包住答案，不讓它跑走！'],img:IMG_BASE+'1769160917892-rro27jr8ej8/9.webp'},
-  { id:'zassou',name:'雜草',nameJP:'ざっそう',color:'#C8E6A0',borderColor:'#B0D480',desc:'積極正面的小草，夢想成為花店裡的花束。',speeches:['今天也要元氣滿滿地學滑輪！','只要努力，雜草也能開花！滑輪也一樣！','嘿嘿～滑輪題難不倒我！','用根部吸收知識，腦袋開花！'],img:IMG_BASE+'1769160918911-waiv4guw2e/10.webp'},
-  { id:'nisetsumuri',name:'偽蝸牛',nameJP:'にせつむり',color:'#D4C8A8',borderColor:'#C0B490',desc:'其實是蛞蝓，背著殼假裝蝸牛，是蜥蜴的好朋友。',speeches:['背著殼學滑輪...有點重但沒關係！','雖然是假的蝸牛，但滑輪答案要是真的！','和蜥蜴一起保守秘密，一起學滑輪！','慢慢來沒關係，答對最重要～'],img:IMG_BASE+'1769160919790-ocy9t2dvds/11.webp'},
-  { id:'hokori',name:'灰塵',nameJP:'ほこり',color:'#E8E4D8',borderColor:'#D0CCC0',desc:'輕飄飄的灰塵們，總是笑嘻嘻的，聚在一起會變大。',speeches:['飄啊飄～飄到滑輪題面前了！','大家聚在一起想答案～','輕飄飄的也能學滑輪哦！','嘻嘻～滑輪好有趣！'],img:IMG_BASE+'1769160920816-sjss1m0hed/12.webp'},
-  { id:'suzume',name:'麻雀',nameJP:'すずめ',color:'#D4B896',borderColor:'#C0A480',desc:'普通的小麻雀，對炸豬排很感興趣，常偷啄麵衣。',speeches:['嘰嘰喳喳～來啄...不是，來學滑輪！','飛來飛去看到好多滑輪題！','炸豬排的麵衣好好吃...啊，要專心學滑輪！','小小的腦袋也能解大大的題目！'],img:IMG_BASE+'1769160921604-htu179rvsc/13.webp'},
-  { id:'mogura',name:'鼹鼠',nameJP:'もぐら',color:'#C8A882',borderColor:'#B09068',desc:'住在地底下的鼹鼠，性格害羞，偶爾探出頭來。',speeches:['從地底探出頭來學滑輪！','地底下太暗了看不到題目...出來做吧！','挖洞挖洞...挖到滑輪題了！','害羞地露出頭...這題我會！'],img:IMG_BASE+'1769160926014-cjldp4bhng5/18.webp'},
-  { id:'dinomama',name:'恐龍媽媽',nameJP:'とかげのおかあさん',color:'#8CBFBF',borderColor:'#70A8A8',desc:'蜥蜴的媽媽，住在角落湖裡的神秘水怪，溫柔的恐龍。',speeches:['從湖裡浮出來看看孩子們的滑輪作業～','媽媽以前也很會學滑輪哦！','好想和小蜥蜴一起學滑輪題...','用母愛的力量解開這道題吧！'],img:IMG_BASE+'1769160929057-q83h1s3sj7l/21.webp'}
+  { id:'shirokuma',name:'白熊',nameJP:'しろくま',color:'#F5F0E8',borderColor:'#E8DFD0',desc:'怕冷的北極熊，從北方逃到南方，喜歡喝熱茶和蓋棉被。',speeches:['用滑輪把暖爐拉過來吧～','槓桿原理真有趣呢！','轉動方向盤就是輪軸的原理！','一邊喝熱茶一邊學簡單機械吧！'],img:IMG_BASE+'1769160910869-6ah340f176m/1.webp'},
+  { id:'penguin',name:'企鵝？',nameJP:'ぺんぎん？',color:'#B8D4A8',borderColor:'#A0C490',desc:'不確定自己是不是企鵝，頭上好像曾經有個盤子，每天都在尋找自我。',speeches:['我到底是不是企鵝呢...先學簡單機械吧？','用定滑輪從井裡打水好方便！','齒輪轉啊轉～真有趣！','邊吃小黃瓜邊研究槓桿～'],img:IMG_BASE+'1769160911896-hktlduhyts4/2.webp'},
+  { id:'tonkatsu',name:'炸豬排',nameJP:'とんかつ',color:'#F5D6B8',borderColor:'#E8C4A0',desc:'炸豬排邊邊的肉，99%是油脂，因為太油被吃剩下來，希望有天能被吃掉。',speeches:['用槓桿把我從盤子邊撬回來！','雖然被剩下了...但知識不會被剩下！','希望像齒輪一樣被需要...','99%是油脂，但100%懂簡單機械！'],img:IMG_BASE+'1769160912753-mwcvofiw1hb/3.webp'},
+  { id:'neko',name:'貓',nameJP:'ねこ',color:'#F5E6A0',borderColor:'#E8D888',desc:'害羞的貓咪，喜歡躲在角落磨牆壁，很在意身材但又愛吃東西。',speeches:['用滑輪把魚拉上來吃～喵！','開罐頭用的是槓桿原理呢！','喵～簡單機械好有趣！','門把轉一轉就是輪軸呢...'],img:IMG_BASE+'1769160913779-hxpekre7c8/4.webp'},
+  { id:'tokage',name:'蜥蜴',nameJP:'とかげ',color:'#A8D8D8',borderColor:'#90C4C4',desc:'其實是倖存的恐龍，偽裝成蜥蜴生活，很想念住在海裡的媽媽。',speeches:['噓...用滑輪把秘密藏到高處吧！','好想用槓桿把媽媽從湖裡撬上來...','偽裝成蜥蜴也要認真學簡單機械呢！','游泳和齒輪都難不倒我～'],img:IMG_BASE+'1769160914647-qw2yqsyzgxo/5.webp'},
+  { id:'ebifurai',name:'炸蝦尾',nameJP:'えびふらいのしっぽ',color:'#F5C49C',borderColor:'#E0AE80',desc:'因為太硬被吃剩的炸蝦尾巴，和炸豬排是好朋友。',speeches:['雖然硬硬的不好咬...但題目我咬得動！','和炸豬排一起學簡單機械最開心了～','以前身體好長好長...像槓桿一樣！','炸蝦尾也能解出題目哦！'],img:IMG_BASE+'1769160915458-c4rz2zaocsb/6.webp'},
+  { id:'tapioca',name:'粉圓',nameJP:'たぴおか',color:'#FFF8DC',borderColor:'#E8E0C0',desc:'珍珠奶茶裡被喝剩的粉圓，因為不好吸所以被放棄。',speeches:['......（盯著題目看）','不好吸沒關係，題目我會解！','（模仿齒輪轉動的樣子）嘎嘎～','粉圓很多，答案只有一個！'],img:IMG_BASE+'1769160916269-4r3gjdtlyjf/7.webp'},
+  { id:'furoshiki',name:'裹布',nameJP:'ふろしき',color:'#F2C6D0',borderColor:'#E0AAB8',desc:'白熊的行李布，常被拿來當野餐墊、靠墊。',speeches:['被白熊裹著好溫暖～一起學簡單機械吧！','我可以變成各種形狀，機械也有很多變化呢！','攤開來當作筆記本～','包住答案，不讓它跑走！'],img:IMG_BASE+'1769160917892-rro27jr8ej8/9.webp'},
+  { id:'zassou',name:'雜草',nameJP:'ざっそう',color:'#C8E6A0',borderColor:'#B0D480',desc:'積極正面的小草，夢想成為花店裡的花束。',speeches:['今天也要元氣滿滿地學簡單機械！','只要努力，雜草也能開花！學習也一樣！','嘿嘿～題目難不倒我！','用根部吸收知識，腦袋開花！'],img:IMG_BASE+'1769160918911-waiv4guw2e/10.webp'},
+  { id:'nisetsumuri',name:'偽蝸牛',nameJP:'にせつむり',color:'#D4C8A8',borderColor:'#C0B490',desc:'其實是蛞蝓，背著殼假裝蝸牛，是蜥蜴的好朋友。',speeches:['背著殼學簡單機械...有點重但沒關係！','雖然是假的蝸牛，但答案要是真的！','和蜥蜴一起保守秘密，一起學習！','慢慢來沒關係，答對最重要～'],img:IMG_BASE+'1769160919790-ocy9t2dvds/11.webp'},
+  { id:'hokori',name:'灰塵',nameJP:'ほこり',color:'#E8E4D8',borderColor:'#D0CCC0',desc:'輕飄飄的灰塵們，總是笑嘻嘻的，聚在一起會變大。',speeches:['飄啊飄～飄到題目面前了！','大家聚在一起想答案～','輕飄飄的也能學簡單機械哦！','嘻嘻～齒輪轉轉好有趣！'],img:IMG_BASE+'1769160920816-sjss1m0hed/12.webp'},
+  { id:'suzume',name:'麻雀',nameJP:'すずめ',color:'#D4B896',borderColor:'#C0A480',desc:'普通的小麻雀，對炸豬排很感興趣，常偷啄麵衣。',speeches:['嘰嘰喳喳～來啄...不是，來學簡單機械！','飛來飛去看到好多滑輪和槓桿！','炸豬排的麵衣好好吃...啊，要專心！','小小的腦袋也能解大大的題目！'],img:IMG_BASE+'1769160921604-htu179rvsc/13.webp'},
+  { id:'mogura',name:'鼹鼠',nameJP:'もぐら',color:'#C8A882',borderColor:'#B09068',desc:'住在地底下的鼹鼠，性格害羞，偶爾探出頭來。',speeches:['從地底探出頭來學簡單機械！','地底下太暗了看不到題目...出來做吧！','挖洞挖洞...挖到題目了！','害羞地露出頭...這題我會！'],img:IMG_BASE+'1769160926014-cjldp4bhng5/18.webp'},
+  { id:'dinomama',name:'恐龍媽媽',nameJP:'とかげのおかあさん',color:'#8CBFBF',borderColor:'#70A8A8',desc:'蜥蜴的媽媽，住在角落湖裡的神秘水怪，溫柔的恐龍。',speeches:['從湖裡浮出來看看孩子們的作業～','媽媽以前也很會簡單機械哦！','好想和小蜥蜴一起做題目...','用母愛的力量解開這道題吧！'],img:IMG_BASE+'1769160929057-q83h1s3sj7l/21.webp'}
 ];
 
 // ========== BOSSES (every 5 levels) ==========
@@ -220,9 +226,9 @@ const bosses = [
   { name:'暗黑粉圓大王', hp:3, img:IMG_BASE+'1769160917070-vq825g584x/8.webp', color:'#4A4A4A',
     speeches:['黑漆漆的粉圓來擋路了！答對題目才能通過！','哼哼...這題你答得出來嗎？','不要小看粉圓的力量！'] },
   { name:'巨大灰塵怪', hp:4, img:IMG_BASE+'1769160920816-sjss1m0hed/12.webp', color:'#9E9E9E',
-    speeches:['灰塵們聚在一起變成大怪物了！','飄～飄～你能打敗我嗎？','越來越大了！快用滑輪知識打敗我！'] },
+    speeches:['灰塵們聚在一起變成大怪物了！','飄～飄～你能打敗我嗎？','越來越大了！快用知識打敗我！'] },
   { name:'迷路的恐龍', hp:5, img:IMG_BASE+'1769160929057-q83h1s3sj7l/21.webp', color:'#70A8A8',
-    speeches:['從遠古而來的恐龍擋住了去路！','吼～～～用滑輪的力量對付我吧！','好久沒有遇到聰明的人類了...'] },
+    speeches:['從遠古而來的恐龍擋住了去路！','吼～～～用簡單機械的力量對付我吧！','好久沒有遇到聰明的人類了...'] },
 ];
 
 // ========== UTILITY ==========
@@ -435,25 +441,344 @@ function genComboHard(){
     diagram: svgCombo(n, W+'N'), steps:t.steps, hint:t.hint };
 }
 
+// ========== 槓桿 (LEVER) GENERATORS ==========
+
+function genLeverEasy(){
+  const pool = [
+    // --- 省力槓桿 ---
+    { q:'「拔釘器」屬於哪一種槓桿？',
+      choices:['省力槓桿','費力槓桿','不省力也不費力的槓桿','不是槓桿'],
+      correct:0, steps:['拔釘器的施力臂（手握處到支點）比抗力臂（釘子到支點）長','施力臂 > 抗力臂 → 省力槓桿','省力槓桿的特點：省力但費距離'] },
+    { q:'下列哪一個是「省力槓桿」？',
+      choices:['開瓶器','筷子','鑷子','麵包夾'],
+      correct:0, steps:['開瓶器的施力臂比抗力臂長','施力臂 > 抗力臂 → 省力','筷子、鑷子、麵包夾都是費力槓桿'] },
+    { q:'「榨汁器」為什麼能輕鬆壓出果汁？',
+      choices:['因為它是省力槓桿，施力臂比抗力臂長','因為它是費力槓桿','因為它用了齒輪','因為它不是槓桿'],
+      correct:0, steps:['榨汁器的把手很長（施力臂長）','壓果汁的地方離支點很近（抗力臂短）','施力臂 > 抗力臂 → 省力槓桿'] },
+    { q:'「單輪推車（獨輪車）」是什麼類型的槓桿？',
+      choices:['省力槓桿','費力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['獨輪車的輪子是支點','手握把手到輪子的距離是施力臂','貨物到輪子的距離是抗力臂','施力臂 > 抗力臂 → 省力槓桿'] },
+    { q:'指甲剪屬於哪一種槓桿？',
+      choices:['省力槓桿','費力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['指甲剪的手柄很長，刀刃部分很短','施力臂 > 抗力臂 → 省力槓桿','所以輕輕一壓就能剪斷指甲'] },
+    { q:'核桃鉗（胡桃鉗）為什麼能輕鬆夾碎核桃？',
+      choices:['因為施力臂比抗力臂長，是省力槓桿','因為它是費力槓桿','因為它是輪軸','因為它是齒輪'],
+      correct:0, steps:['核桃鉗的手柄長（施力臂長）','核桃放置處離鉸鏈（支點）近（抗力臂短）','施力臂 > 抗力臂 → 省力槓桿'] },
+    // --- 費力槓桿 ---
+    { q:'「筷子」屬於哪一種槓桿？',
+      choices:['費力槓桿','省力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['筷子的支點在手指夾住的地方（上端）','施力點在手指中間，抗力點在筷子尖端','施力臂 < 抗力臂 → 費力槓桿','雖然費力，但可以精準夾取食物'] },
+    { q:'「鑷子」是什麼類型的槓桿？',
+      choices:['費力槓桿','省力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['鑷子的支點在尾端（連接處）','手指施力的位置離支點近（施力臂短）','夾取物品的尖端離支點遠（抗力臂長）','施力臂 < 抗力臂 → 費力但方便操作'] },
+    { q:'「麵包夾」為什麼使用起來很方便，雖然它是費力槓桿？',
+      choices:['雖然費力，但能精準控制夾取範圍','因為它省力','因為它是等臂槓桿','因為它不是槓桿'],
+      correct:0, steps:['麵包夾的支點在尾端','施力臂 < 抗力臂 → 費力槓桿','雖然費力，但手指小幅度動作就能控制大範圍的夾取','費力換來的是操作的便利性'] },
+    { q:'釣魚竿是什麼類型的槓桿？',
+      choices:['費力槓桿','省力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['釣魚竿的支點在手握的底端','施力點在手握的位置（離支點近）','魚在竿尖（離支點遠）','施力臂 < 抗力臂 → 費力但方便操作','手臂小幅度動作，竿尖就能大幅度移動'] },
+    { q:'掃把是什麼類型的槓桿？',
+      choices:['費力槓桿','省力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['掃把的支點在上面的手','下面的手是施力點（施力臂短）','掃把底端接觸地面（抗力臂長）','施力臂 < 抗力臂 → 費力但方便操作'] },
+    // --- 不一定 (看使用方式) ---
+    { q:'「剪刀」屬於哪一種槓桿？',
+      choices:['要看剪刀的種類和使用方式而定','一定是省力槓桿','一定是費力槓桿','不是槓桿'],
+      correct:0, steps:['剪刀的支點在中間的螺絲處','一般剪刀：施力臂 ≈ 抗力臂，接近等臂槓桿','鐵皮剪刀：手柄長、刀刃短 → 省力槓桿','裁縫剪刀：手柄短、刀刃長 → 費力槓桿'] },
+    { q:'「老虎鉗」通常屬於哪一種槓桿？',
+      choices:['省力槓桿','費力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['老虎鉗的支點在中間的鉸鏈處','手柄比鉗口長 → 施力臂 > 抗力臂','所以老虎鉗通常是省力槓桿','能輕鬆夾住或剪斷鐵絲'] },
+    { q:'「長尾夾」屬於哪一種槓桿？',
+      choices:['費力槓桿（夾住時）','省力槓桿','等臂槓桿','不是槓桿'],
+      correct:0, steps:['長尾夾有兩個操作階段','打開時：按壓尾巴（施力臂長）→ 省力','夾住後：彈簧提供夾持力','整體而言，夾持時屬於費力槓桿的設計'] },
+    // --- 生活應用辨認 ---
+    { q:'下列哪一個「不是」省力槓桿？',
+      choices:['筷子','拔釘器','開瓶器','指甲剪'],
+      correct:0, steps:['筷子的施力臂 < 抗力臂 → 費力槓桿','拔釘器、開瓶器、指甲剪的施力臂都 > 抗力臂','它們都是省力槓桿'] },
+    { q:'費力槓桿雖然費力，但它的優點是什麼？',
+      choices:['可以省距離，操作更方便','可以省力','完全沒有優點','可以改變力的方向'],
+      correct:0, steps:['費力槓桿的施力臂 < 抗力臂','施力移動小距離 → 抗力端移動大距離','所以操作更方便、更精準','例如筷子：手指動一點，筷尖就能精準夾取'] },
+    { q:'蹺蹺板是什麼類型的槓桿？',
+      choices:['等臂槓桿（支點在中間）','省力槓桿','費力槓桿','不是槓桿'],
+      correct:0, steps:['蹺蹺板的支點在正中間','兩邊的力臂長度相等','施力臂 = 抗力臂 → 等臂槓桿','所以兩邊體重差不多才能平衡'] },
+    { q:'天平是什麼類型的槓桿？',
+      choices:['等臂槓桿','省力槓桿','費力槓桿','不是槓桿'],
+      correct:0, steps:['天平的支點在正中間','兩邊的力臂完全相等','施力臂 = 抗力臂 → 等臂槓桿','所以可以精確比較兩邊的重量'] },
+  ];
+  const item = pick(pool);
+  return { type:'lever', mode:'choice', display:item.q, choices:item.choices, correctIndex:item.correct,
+    steps:item.steps, hint:'提示：槓桿三要素 — 支點、施力點、抗力點。比較施力臂和抗力臂的長短來判斷類型。' };
+}
+
+function genLeverHard(){
+  // Lever principle: F1 × d1 = F2 × d2
+  const templates = [];
+
+  // Type 1: Find force
+  const d1 = randInt(2,8) * 10; // cm
+  const d2 = randInt(2,8) * 10;
+  const F2 = randInt(2,15) * 10; // N
+  const F1 = F2 * d2 / d1;
+  if(Number.isInteger(F1) && F1 > 0 && F1 <= 500) {
+    templates.push({
+      q:`一根槓桿，施力臂為 ${d1} cm，抗力臂為 ${d2} cm，抗力為 ${F2} N。求施力 F 為多少？（槓桿平衡時）`,
+      answer:{F:F1}, answerLabels:['F (N)'],
+      steps:[`槓桿原理：F₁ × d₁ = F₂ × d₂`,`F × ${d1} = ${F2} × ${d2}`,`F × ${d1} = ${F2*d2}`,`F = ${F2*d2} ÷ ${d1} = ${F1} N`,`答案：F = ${F1} N`],
+      hint:`提示：槓桿原理 F₁×d₁ = F₂×d₂，代入已知值求解`
+    });
+  }
+
+  // Type 2: Find distance
+  const F_a = randInt(2,10) * 10;
+  const F_b = randInt(2,10) * 10;
+  const d_a = randInt(2,8) * 10;
+  const d_b = F_a * d_a / F_b;
+  if(Number.isInteger(d_b) && d_b > 0 && d_b <= 200) {
+    templates.push({
+      q:`槓桿平衡時，施力 ${F_a} N，施力臂 ${d_a} cm，抗力 ${F_b} N。求抗力臂為多少 cm？`,
+      answer:{d:d_b}, answerLabels:['d (cm)'],
+      steps:[`槓桿原理：F₁ × d₁ = F₂ × d₂`,`${F_a} × ${d_a} = ${F_b} × d₂`,`${F_a*d_a} = ${F_b} × d₂`,`d₂ = ${F_a*d_a} ÷ ${F_b} = ${d_b} cm`,`答案：d = ${d_b} cm`],
+      hint:'提示：槓桿原理 F₁×d₁ = F₂×d₂'
+    });
+  }
+
+  // Type 3: Mechanical advantage
+  const d1m = randInt(2,6) * 10;
+  const d2m = randInt(2,6) * 10;
+  if(d1m !== d2m) {
+    const F2m = d2m * 2;
+    const F1m = F2m * d2m / d1m;
+    if(Number.isInteger(F1m)) {
+      const ma = d1m > d2m ? '省力' : '費力';
+      templates.push({
+        q:`一個槓桿的施力臂為 ${d1m} cm，抗力臂為 ${d2m} cm，抗力為 ${F2m} N。求施力及判斷此為省力或費力槓桿。`,
+        answer:{F: F1m}, answerLabels:['F (N)'],
+        steps:[`F₁ × ${d1m} = ${F2m} × ${d2m}`,`F₁ = ${F2m*d2m} ÷ ${d1m} = ${F1m} N`,`施力臂 ${d1m} cm ${d1m>d2m?'>':'<'} 抗力臂 ${d2m} cm`,`所以這是${ma}槓桿`,`答案：F = ${F1m} N（${ma}槓桿）`],
+        hint:'提示：施力臂 > 抗力臂 → 省力；施力臂 < 抗力臂 → 費力'
+      });
+    }
+  }
+
+  if(templates.length === 0) return genLeverEasy(); // fallback
+  const t = pick(templates);
+  return { type:'lever', mode:'calc', display:t.q, answer:t.answer, answerLabels:t.answerLabels,
+    steps:t.steps, hint:t.hint };
+}
+
+// ========== 輪軸 (WHEEL AND AXLE) GENERATORS ==========
+
+function genAxleEasy(){
+  const pool = [
+    // --- 省力工具 ---
+    { q:'「削鉛筆機」是利用什麼簡單機械的原理？',
+      choices:['輪軸','槓桿','滑輪','齒輪'],
+      correct:0, steps:['削鉛筆機轉動把手（輪）帶動內部刀片（軸）','把手半徑大（輪），刀片處半徑小（軸）','在輪上施力 → 軸上產生更大的力 → 省力'] },
+    { q:'「板手（扳手）」為什麼能輕鬆轉動螺帽？',
+      choices:['因為板手利用輪軸原理，把手是輪，螺帽是軸','因為板手是滑輪','因為板手是齒輪','因為板手不是簡單機械'],
+      correct:0, steps:['板手的把手很長，相當於「輪」的半徑大','螺帽很小，相當於「軸」的半徑小','在大半徑（輪）施力，小半徑（軸）產生大力','所以可以輕鬆轉動很緊的螺帽'] },
+    { q:'開車時轉動「方向盤」是運用什麼原理？',
+      choices:['輪軸原理','槓桿原理','齒輪原理','沒有用到簡單機械'],
+      correct:0, steps:['方向盤是圓形的大「輪」','連接到轉向柱（軸）','轉動大方向盤（輪）→ 軸產生大力 → 省力','所以可以輕鬆轉動車輪'] },
+    { q:'轉動「門把」開門是利用什麼原理？',
+      choices:['輪軸原理','滑輪原理','槓桿原理','齒輪原理'],
+      correct:0, steps:['門把（把手）是「輪」','門鎖的轉軸是「軸」','轉動大的門把 → 帶動小的轉軸 → 省力','所以輕輕轉門把就能開門'] },
+    { q:'轉動「瓦斯爐開關」是利用什麼原理？',
+      choices:['輪軸原理','滑輪原理','槓桿原理','齒輪原理'],
+      correct:0, steps:['瓦斯爐開關旋鈕是「輪」','內部控制閥是「軸」','轉動旋鈕 → 帶動閥門 → 省力','這就是輪軸的應用'] },
+    { q:'水龍頭的把手是利用什麼簡單機械原理？',
+      choices:['輪軸原理','滑輪原理','槓桿原理','齒輪原理'],
+      correct:0, steps:['水龍頭把手是「輪」','內部閥門軸心是「軸」','轉動大把手 → 帶動小軸心 → 省力','有些水龍頭加了十字形把手，更省力'] },
+    { q:'螺絲起子的把手為什麼比前端粗？',
+      choices:['把手是輪，前端是軸，輪大軸小才省力','只是為了好看','為了防止打滑','沒有特別原因'],
+      correct:0, steps:['螺絲起子是輪軸的應用','粗把手相當於大的「輪」','細的螺絲刀頭相當於「軸」','輪越大越省力，所以把手設計得比較粗'] },
+    // --- 費力但方便操作 ---
+    { q:'「扯鈴」是利用什麼簡單機械的原理？',
+      choices:['輪軸（費力但方便操作）','槓桿','滑輪','齒輪'],
+      correct:0, steps:['扯鈴的繩子纏繞在細軸上（軸＝輪）','扯鈴的碟片是「輪」','在小的軸上施力 → 大的碟片快速旋轉','費力但換來速度和旋轉的方便性'] },
+    { q:'「擀麵棍」是利用什麼原理來壓平麵團？',
+      choices:['輪軸原理（費力但操作方便）','槓桿原理','滑輪原理','齒輪原理'],
+      correct:0, steps:['手握住擀麵棍的兩端（軸＝小半徑）','擀麵棍中間滾動壓平麵團（輪＝大半徑）','在軸上施力 → 輪上移動更大距離','費力但可以快速壓平大面積的麵團'] },
+    { q:'「竹蜻蜓」是利用什麼原理飛起來的？',
+      choices:['輪軸原理','槓桿原理','滑輪原理','齒輪原理'],
+      correct:0, steps:['手搓竹蜻蜓的細棍（軸）','帶動上面的翅膀快速旋轉（輪）','在軸施力 → 輪高速轉動 → 產生升力','費力但換來翅膀的高速旋轉'] },
+    { q:'「電風扇」的馬達帶動扇葉是什麼原理？',
+      choices:['輪軸原理','槓桿原理','滑輪原理','都不是'],
+      correct:0, steps:['馬達的軸心很小（軸）','扇葉的旋轉半徑大（輪）','軸帶動輪 → 費力但扇葉移動距離大','所以電風扇能產生大範圍的風'] },
+    // --- 輪軸概念 ---
+    { q:'輪軸中，在「輪」上施力有什麼效果？',
+      choices:['省力（但費距離）','費力','不省力也不費力','改變力的方向'],
+      correct:0, steps:['輪的半徑大，軸的半徑小','在輪上施小力 → 軸上產生大力','省力但費距離','例如轉方向盤，轉很多圈（費距離）但很輕鬆（省力）'] },
+    { q:'輪軸中，在「軸」上施力有什麼效果？',
+      choices:['費力（但省距離、速度變快）','省力','不省力也不費力','改變力的方向'],
+      correct:0, steps:['在軸上施力 → 輪上產生較小的力但移動較大距離','費力但輪端的移動速度更快','例如電風扇：馬達軸轉動 → 扇葉高速旋轉'] },
+    { q:'下列哪一個「不是」輪軸的應用？',
+      choices:['鑷子','方向盤','門把','削鉛筆機'],
+      correct:0, steps:['鑷子是槓桿的應用，不是輪軸','方向盤、門把、削鉛筆機都是輪軸','輪軸需要有一個大圈（輪）和一個小圈（軸）繞同一個中心轉動'] },
+  ];
+  const item = pick(pool);
+  return { type:'axle', mode:'choice', display:item.q, choices:item.choices, correctIndex:item.correct,
+    steps:item.steps, hint:'提示：輪軸由同軸的大圈（輪）和小圈（軸）組成。在輪施力省力，在軸施力費力但快。' };
+}
+
+function genAxleHard(){
+  // Wheel and axle: F_wheel × R = F_axle × r
+  // Or: F1 × R = F2 × r
+  const R = pick([8,10,12,15,20,25]); // wheel radius cm
+  const r = pick([2,3,4,5]); // axle radius cm
+  if(R <= r) return genAxleEasy();
+  const F2 = randInt(3,20) * 10; // load on axle (N)
+  const F1 = F2 * r / R; // force on wheel
+
+  const templates = [];
+
+  if(Number.isInteger(F1) && F1 > 0) {
+    templates.push({
+      q:`一個輪軸裝置，輪的半徑為 ${R} cm，軸的半徑為 ${r} cm。若軸上的阻力為 ${F2} N，求在輪上需施多大的力才能平衡？`,
+      answer:{F:F1}, answerLabels:['F (N)'],
+      steps:[`輪軸原理：F₁ × R = F₂ × r`,`F₁ × ${R} = ${F2} × ${r}`,`F₁ = ${F2*r} ÷ ${R} = ${F1} N`,`因為 R > r，所以 F₁ < F₂，省力！`,`答案：F = ${F1} N`],
+      hint:'提示：輪軸原理 F₁×R = F₂×r（R=輪半徑，r=軸半徑）'
+    });
+  }
+
+  // MA question
+  const ma = R / r;
+  if(Number.isInteger(ma)) {
+    templates.push({
+      q:`輪軸的輪半徑為 ${R} cm，軸半徑為 ${r} cm。求在輪上施力時的機械利益（MA）。`,
+      answer:{MA:ma}, answerLabels:['MA'],
+      steps:[`機械利益 MA = R/r（在輪上施力時）`,`MA = ${R}/${r} = ${ma}`,`表示施力只需抗力的 1/${ma}`,`答案：MA = ${ma}`],
+      hint:'提示：在輪上施力的機械利益 = R÷r'
+    });
+  }
+
+  if(templates.length === 0) return genAxleEasy();
+  const t = pick(templates);
+  return { type:'axle', mode:'calc', display:t.q, answer:t.answer, answerLabels:t.answerLabels,
+    steps:t.steps, hint:t.hint };
+}
+
+// ========== 齒輪 (GEAR) GENERATORS ==========
+
+function genGearEasy(){
+  const pool = [
+    { q:'兩個齒輪咬合在一起轉動時，它們的轉動方向是？',
+      choices:['相反','相同','不一定','不會轉'],
+      correct:0, steps:['兩個齒輪咬合時','一個順時針轉，另一個就逆時針轉','轉動方向一定相反'] },
+    { q:'大齒輪帶動小齒輪時，小齒輪會怎樣？',
+      choices:['轉得比大齒輪快','轉得比大齒輪慢','轉速一樣','不會動'],
+      correct:0, steps:['齒輪咬合時齒數多的轉得慢，齒數少的轉得快','大齒輪（齒數多）轉一圈','小齒輪（齒數少）要轉好幾圈','所以小齒輪轉得比較快'] },
+    { q:'腳踏車的踏板齒輪（大）帶動後輪齒輪（小），這有什麼效果？',
+      choices:['後輪轉得比踏板快，可以騎更快','後輪轉得比踏板慢','兩個轉速一樣','後輪不會動'],
+      correct:0, steps:['腳踏車前齒輪（大）透過鏈條帶動後齒輪（小）','大齒輪轉一圈 → 小齒輪轉多圈','所以踩一圈踏板，後輪轉好幾圈','車子就能跑很快'] },
+    { q:'時鐘裡面用了什麼簡單機械來讓指針轉動？',
+      choices:['齒輪','滑輪','槓桿','輪軸'],
+      correct:0, steps:['時鐘內部有很多大小不同的齒輪','齒輪互相咬合，傳遞動力','大齒輪帶小齒輪，控制不同指針的轉速','秒針轉最快，時針轉最慢'] },
+    { q:'如果想讓機器轉得更省力（增大力量），應該怎麼做？',
+      choices:['用小齒輪帶動大齒輪','用大齒輪帶動小齒輪','用一樣大的齒輪','不用齒輪'],
+      correct:0, steps:['小齒輪帶大齒輪 → 省力但轉速變慢','這就像腳踏車爬坡時換到低速檔','小齒輪帶大齒輪 = 力量放大','大齒輪帶小齒輪 = 速度放大'] },
+    { q:'齒輪傳動和皮帶傳動最大的不同是什麼？',
+      choices:['齒輪不會打滑，傳動更精確','齒輪比較便宜','齒輪比較輕','沒有不同'],
+      correct:0, steps:['齒輪的齒會互相咬合','不像皮帶可能打滑','所以齒輪傳動更精確可靠','時鐘、汽車變速箱都用齒輪'] },
+    { q:'手動絞肉機用了什麼簡單機械？',
+      choices:['輪軸和齒輪','只有滑輪','只有槓桿','都沒有用到'],
+      correct:0, steps:['手動絞肉機的搖桿是輪軸','內部用齒輪傳動帶動螺旋刀片','結合了輪軸（搖桿省力）和齒輪（傳動）'] },
+    { q:'如果三個齒輪 A→B→C 依序咬合，A 順時針轉，C 的轉向是？',
+      choices:['順時針（和 A 同向）','逆時針（和 A 反向）','不會轉','不一定'],
+      correct:0, steps:['A 順時針 → B 逆時針（相反）','B 逆時針 → C 順時針（又相反）','奇數個齒輪排列 → 首尾同向','偶數個齒輪排列 → 首尾反向'] },
+    { q:'變速腳踏車換檔的原理是什麼？',
+      choices:['改變前後齒輪的大小比例','改變輪胎大小','改變踏板長度','和齒輪無關'],
+      correct:0, steps:['變速腳踏車有多個大小不同的齒輪','換到大前齒輪+小後齒輪 → 速度快但費力','換到小前齒輪+大後齒輪 → 省力但速度慢','這就是齒輪比的應用'] },
+    { q:'攪拌器（打蛋器）裡面用了什麼簡單機械？',
+      choices:['齒輪（改變旋轉方向和速度）','滑輪','槓桿','沒有用簡單機械'],
+      correct:0, steps:['手動打蛋器內有齒輪組','轉動把手（大齒輪）帶動攪拌棒（小齒輪）','大齒輪轉一圈 → 小齒輪轉好幾圈','所以攪拌棒可以轉得很快'] },
+  ];
+  const item = pick(pool);
+  return { type:'gear', mode:'choice', display:item.q, choices:item.choices, correctIndex:item.correct,
+    steps:item.steps, hint:'提示：齒輪咬合時方向相反。大帶小→加速；小帶大→省力。' };
+}
+
+function genGearHard(){
+  const tA = pick([12,16,20,24,30,36,40,48]); // teeth on gear A
+  const tB = pick([12,16,20,24,30,36,40,48]); // teeth on gear B
+  if(tA === tB) return genGearEasy();
+
+  const templates = [];
+
+  // Type 1: Speed ratio
+  const rpmA = pick([60,90,120,150,180,240,300]);
+  const rpmB = rpmA * tA / tB;
+  if(Number.isInteger(rpmB)) {
+    templates.push({
+      q:`齒輪 A 有 ${tA} 齒，齒輪 B 有 ${tB} 齒，兩者咬合。若 A 每分鐘轉 ${rpmA} 圈，求 B 每分鐘轉幾圈？`,
+      answer:{n:rpmB}, answerLabels:['n (rpm)'],
+      steps:[`齒輪傳動：齒數 × 轉速 = 常數`,`tA × nA = tB × nB`,`${tA} × ${rpmA} = ${tB} × nB`,`nB = ${tA*rpmA} ÷ ${tB} = ${rpmB} rpm`,`答案：n = ${rpmB} rpm`],
+      hint:'提示：齒輪傳動 tA×nA = tB×nB'
+    });
+  }
+
+  // Type 2: Gear ratio (only when it's an integer)
+  if(Number.isInteger(tA / tB) && tA / tB > 1) {
+    const gr = tA / tB;
+    templates.push({
+      q:`主動齒輪有 ${tA} 齒，被動齒輪有 ${tB} 齒。求齒輪比（主動齒數÷被動齒數）。`,
+      answer:{R: gr}, answerLabels:['齒輪比'],
+      steps:[`齒輪比 = 主動齒數 ÷ 被動齒數`,`= ${tA} ÷ ${tB} = ${gr}`,
+        `齒輪比 ${gr} > 1 → 被動齒輪轉速變快（加速）`,
+        `答案：齒輪比 = ${gr}`],
+      hint:'提示：齒輪比 = 主動齒數 ÷ 被動齒數。>1加速，<1減速省力'
+    });
+  } else if(Number.isInteger(tB / tA) && tB / tA > 1) {
+    const gr2 = tB / tA;
+    templates.push({
+      q:`主動齒輪有 ${tB} 齒，被動齒輪有 ${tA} 齒。求齒輪比（主動齒數÷被動齒數）。`,
+      answer:{R: gr2}, answerLabels:['齒輪比'],
+      steps:[`齒輪比 = 主動齒數 ÷ 被動齒數`,`= ${tB} ÷ ${tA} = ${gr2}`,
+        `齒輪比 ${gr2} > 1 → 被動齒輪轉速變快（加速）`,
+        `答案：齒輪比 = ${gr2}`],
+      hint:'提示：齒輪比 = 主動齒數 ÷ 被動齒數。>1加速，<1減速省力'
+    });
+  }
+
+  // Type 3: Find teeth count
+  const nA2 = pick([60,80,100,120]);
+  const nB2 = pick([30,40,60,80,120,160,240]);
+  if(nA2 !== nB2) {
+    const tB2 = 24; // fix gear B teeth
+    const tA2 = tB2 * nB2 / nA2;
+    if(Number.isInteger(tA2) && tA2 > 0 && tA2 <= 100) {
+      templates.push({
+        q:`齒輪 B 有 ${tB2} 齒，轉速 ${nB2} rpm。若齒輪 A 的轉速為 ${nA2} rpm，求 A 有幾齒？`,
+        answer:{t:tA2}, answerLabels:['A 齒數'],
+        steps:[`tA × nA = tB × nB`,`tA × ${nA2} = ${tB2} × ${nB2}`,`tA = ${tB2*nB2} ÷ ${nA2} = ${tA2}`,`答案：A 有 ${tA2} 齒`],
+        hint:'提示：tA × nA = tB × nB，代入已知值求解'
+      });
+    }
+  }
+
+  if(templates.length === 0) return genGearEasy();
+  const t = pick(templates);
+  return { type:'gear', mode:'calc', display:t.q, answer:t.answer, answerLabels:t.answerLabels,
+    steps:t.steps, hint:t.hint };
+}
+
 function generateQuestion(diff){
   diff = diff || document.getElementById('difficulty').value;
   const qType = document.getElementById('qType').value;
   let type;
   if(qType==='mixed'){
-    const r = Math.random();
-    type = r < 0.33 ? 'fixed' : r < 0.66 ? 'movable' : 'combo';
+    const types = ['fixed','movable','combo','lever','axle','gear'];
+    type = pick(types);
   } else {
     type = qType;
   }
-  if(diff==='easy'){
-    if(type==='fixed') return genFixedEasy();
-    if(type==='movable') return genMovableEasy();
-    return genComboEasy();
-  } else {
-    if(type==='fixed') return genFixedHard();
-    if(type==='movable') return genMovableHard();
-    return genComboHard();
-  }
+  const gen = {
+    fixed:  { easy: genFixedEasy,   hard: genFixedHard },
+    movable:{ easy: genMovableEasy, hard: genMovableHard },
+    combo:  { easy: genComboEasy,   hard: genComboHard },
+    lever:  { easy: genLeverEasy,   hard: genLeverHard },
+    axle:   { easy: genAxleEasy,    hard: genAxleHard },
+    gear:   { easy: genGearEasy,    hard: genGearHard },
+  };
+  return gen[type][diff]();
 }
 
 // ========== GLOBAL STATE ==========
@@ -484,7 +809,8 @@ function initBgDecos(){
 }
 
 function buildQuestionHTML(ch, q, opts = {}) {
-  const typeLabel = q.type==='fixed'?'定滑輪':q.type==='movable'?'動滑輪':'滑輪組';
+  const typeLabelMap = {fixed:'定滑輪',movable:'動滑輪',combo:'滑輪組',lever:'槓桿',axle:'輪軸',gear:'齒輪'};
+  const typeLabel = typeLabelMap[q.type] || q.type;
   const typeClass = q.type;
 
   // Diagram (for calc mode)
@@ -617,7 +943,7 @@ function showSolution(q){
 function showModeSelect() {
   gameMode = null;
   document.getElementById('settingsBtn').style.display = 'none';
-  document.getElementById('headerSub').textContent = '和角落小夥伴一起學滑輪吧！';
+  document.getElementById('headerSub').textContent = '和角落小夥伴一起學簡單機械吧！';
   document.getElementById('app').innerHTML = `
     <div class="mode-screen">
       <h2>選擇遊戲模式</h2>
