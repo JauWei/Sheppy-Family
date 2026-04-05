@@ -261,6 +261,17 @@ html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-se
       </div>
       <div class="field-group"><label class="field-label">國家</label><input class="field-input" id="pinCountry" placeholder="例：日本"></div>
       <div class="field-group"><label class="field-label">城市</label><input class="field-input" id="pinCity" placeholder="例：東京"></div>
+      <div class="field-group"><label class="field-label">著色範圍</label>
+        <select class="field-select" id="pinColorScope">
+          <option value="country">整個國家</option>
+          <option value="city">城市範圍</option>
+          <option value="none">不著色</option>
+        </select>
+        <div id="cityRadiusGroup" style="margin-top:8px;display:none">
+          <label style="font-size:12px;color:var(--text2)">城市半徑 (km)</label>
+          <input class="field-input" id="pinCityRadius" type="number" value="15" min="1" max="200" style="margin-top:4px">
+        </div>
+      </div>
       <div class="field-group"><label class="field-label">年度</label><input class="field-input" id="pinYear" placeholder="例：2025" inputmode="numeric"></div>
       <div class="field-group"><label class="field-label">理由 / 備註</label><textarea class="field-textarea" id="pinReason" placeholder="想去的理由，或旅行心得..."></textarea></div>
       <div class="field-group"><label class="field-label">預計花費</label><input class="field-input" id="pinBudget" placeholder="例：NT$ 50,000"></div>
@@ -337,7 +348,7 @@ var supabase=null;
 
 var pins=[],markers={},currentPin=null,isAddingPin=false,addPinCategory='want_to_go';
 var currentUser=null,currentTab='all',exportTab='all',contextLatLng=null;
-var tempPhotos=[],localMode=false,countryLayer=null,clusterGroup=null;
+var tempPhotos=[],localMode=false,countryLayer=null,clusterGroup=null,cityCirclesLayer=null;
 var filterContinent='',filterYear='',searchTimer=null;
 var isTouchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 
@@ -383,6 +394,8 @@ window.addEventListener('resize',function(){map.invalidateSize()});
 window.addEventListener('orientationchange',function(){setTimeout(function(){map.invalidateSize()},500)});
 
 /* COUNTRY COLORING */
+cityCirclesLayer=L.layerGroup().addTo(map);
+
 (function(){
   fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
     .then(function(r){return r.json()})
@@ -392,13 +405,48 @@ window.addEventListener('orientationchange',function(){setTimeout(function(){map
     }).catch(function(e){console.warn('GeoJSON failed:',e)});
 })();
 
+/* Point-in-polygon (ray casting) */
+function ptInRing(pt,ring){
+  var x=pt[0],y=pt[1],inside=false;
+  for(var i=0,j=ring.length-1;i<ring.length;j=i++){
+    var xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)inside=!inside;
+  }
+  return inside;
+}
+function ptInGeometry(lat,lng,geom){
+  var pt=[lng,lat]; // GeoJSON is [lng,lat]
+  if(geom.type==='Polygon'){
+    return ptInRing(pt,geom.coordinates[0]);
+  }else if(geom.type==='MultiPolygon'){
+    for(var i=0;i<geom.coordinates.length;i++){
+      if(ptInRing(pt,geom.coordinates[i][0]))return true;
+    }
+  }
+  return false;
+}
+
 function updateCountryColors(){
-  if(!countryLayer)return;
+  // Clear city circles
+  cityCirclesLayer.clearLayers();
+
   var visited=pins.filter(function(p){return p.category==='visited'});
-  countryLayer.eachLayer(function(layer){
-    var bounds=layer.getBounds();
-    var hit=visited.some(function(p){return bounds.contains(L.latLng(p.latitude,p.longitude))});
-    layer.setStyle({fillOpacity:hit?.2:0,fillColor:'#22C55E',weight:hit?1.5:.5,color:hit?'#16A34A':'#CBD5E1',opacity:hit?.8:.3});
+  var countryPins=visited.filter(function(p){return(p.color_scope||'country')==='country'});
+  var cityPins=visited.filter(function(p){return p.color_scope==='city'});
+
+  // Country-level: precise point-in-polygon
+  if(countryLayer){
+    countryLayer.eachLayer(function(layer){
+      var geom=layer.feature.geometry;
+      var hit=countryPins.some(function(p){return ptInGeometry(p.latitude,p.longitude,geom)});
+      layer.setStyle({fillOpacity:hit?.2:0,fillColor:'#22C55E',weight:hit?1.5:.5,color:hit?'#16A34A':'#CBD5E1',opacity:hit?.8:.3});
+    });
+  }
+
+  // City-level: draw circles
+  cityPins.forEach(function(p){
+    var radius=(p.city_radius||15)*1000; // km to meters
+    L.circle([p.latitude,p.longitude],{radius:radius,fillColor:'#22C55E',fillOpacity:.15,weight:1.5,color:'#16A34A',opacity:.6,interactive:false}).addTo(cityCirclesLayer);
   });
 }
 
@@ -452,7 +500,7 @@ function refreshMarkers(){clusterGroup.clearLayers();markers={};pins.forEach(fun
 
 /* PIN CARD */
 function openNewPinCard(lat,lng,cat){
-  currentPin={id:null,latitude:lat,longitude:lng,country_name:'',city_name:'',country_code:'',category:cat||'want_to_go',pin_color:cat==='visited'?'#22C55E':'#F59E0B',pin_icon:'default',year:'',reason:'',budget:'',notes:'',photos:[],custom_fields:[]};
+  currentPin={id:null,latitude:lat,longitude:lng,country_name:'',city_name:'',country_code:'',category:cat||'want_to_go',pin_color:cat==='visited'?'#22C55E':'#F59E0B',pin_icon:'default',year:'',reason:'',budget:'',notes:'',photos:[],custom_fields:[],color_scope:'country',city_radius:15};
   tempPhotos=[];document.getElementById('pinDeleteBtn').style.display='none';document.getElementById('pinCardTitle').textContent='新增圖釘';
   fillPinCard();document.getElementById('pinCardOverlay').classList.add('open');
   reverseGeocode(lat,lng,currentPin);loadWeatherVisa(lat,lng,null);
@@ -472,10 +520,15 @@ function fillPinCard(){
   document.getElementById('pinYear').value=currentPin.year||'';
   document.getElementById('pinReason').value=currentPin.reason||'';
   document.getElementById('pinBudget').value=currentPin.budget||'';
+  document.getElementById('pinColorScope').value=currentPin.color_scope||'country';
+  document.getElementById('pinCityRadius').value=currentPin.city_radius||15;
+  toggleCityRadius();
   document.getElementById('colorPicker').innerHTML=PIN_COLORS.map(function(c){return'<div class="color-option'+(currentPin.pin_color===c?' active':'')+'" style="background:'+c+'" onclick="selectColor(\''+c+'\')"></div>'}).join('');
   document.getElementById('iconPicker').innerHTML=PIN_ICONS.map(function(i){return'<div class="icon-option'+(currentPin.pin_icon===i.id?' active':'')+'" onclick="selectIcon(\''+i.id+'\')" title="'+i.label+'"><i class="fas '+i.icon+'"></i></div>'}).join('');
   renderPhotos();renderCustomFields();
 }
+function toggleCityRadius(){var v=document.getElementById('pinColorScope').value;document.getElementById('cityRadiusGroup').style.display=v==='city'?'block':'none'}
+document.getElementById('pinColorScope').addEventListener('change',toggleCityRadius);
 function selectColor(c){currentPin.pin_color=c;document.getElementById('colorPicker').innerHTML=PIN_COLORS.map(function(cc){return'<div class="color-option'+(currentPin.pin_color===cc?' active':'')+'" style="background:'+cc+'" onclick="selectColor(\''+cc+'\')"></div>'}).join('')}
 function selectIcon(id){currentPin.pin_icon=id;document.getElementById('iconPicker').innerHTML=PIN_ICONS.map(function(i){return'<div class="icon-option'+(currentPin.pin_icon===i.id?' active':'')+'" onclick="selectIcon(\''+i.id+'\')" title="'+i.label+'"><i class="fas '+i.icon+'"></i></div>'}).join('')}
 
@@ -515,6 +568,7 @@ async function savePin(){
   currentPin.category=document.getElementById('pinCategory').value;currentPin.country_name=document.getElementById('pinCountry').value;
   currentPin.city_name=document.getElementById('pinCity').value;currentPin.year=document.getElementById('pinYear').value;
   currentPin.reason=document.getElementById('pinReason').value;currentPin.budget=document.getElementById('pinBudget').value;
+  currentPin.color_scope=document.getElementById('pinColorScope').value;currentPin.city_radius=parseInt(document.getElementById('pinCityRadius').value)||15;
   if(localMode||!supabase||!currentUser){
     if(!currentPin.id)currentPin.id='local_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
     currentPin.photos=tempPhotos.map(function(p){return typeof p==='string'?p:(p.photo_url||p.url)});
@@ -523,7 +577,7 @@ async function savePin(){
     saveToLocal();refreshMarkers();closePinCard();return;
   }
   try{
-    var d={user_id:currentUser.id,latitude:currentPin.latitude,longitude:currentPin.longitude,country_name:currentPin.country_name,city_name:currentPin.city_name,category:currentPin.category,pin_color:currentPin.pin_color,pin_icon:currentPin.pin_icon,year:currentPin.year,reason:currentPin.reason,budget:currentPin.budget,notes:currentPin.notes||'',country_code:currentPin.country_code||''};
+    var d={user_id:currentUser.id,latitude:currentPin.latitude,longitude:currentPin.longitude,country_name:currentPin.country_name,city_name:currentPin.city_name,category:currentPin.category,pin_color:currentPin.pin_color,pin_icon:currentPin.pin_icon,year:currentPin.year,reason:currentPin.reason,budget:currentPin.budget,notes:currentPin.notes||'',country_code:currentPin.country_code||'',color_scope:currentPin.color_scope||'country',city_radius:currentPin.city_radius||15};
     var pinId=currentPin.id;
     if(!pinId||String(pinId).startsWith('local_')){var r=await supabase.from('pins').insert(d).select().single();if(r.error)throw r.error;pinId=r.data.id}
     else{var r2=await supabase.from('pins').update(d).eq('id',pinId);if(r2.error)throw r2.error}
