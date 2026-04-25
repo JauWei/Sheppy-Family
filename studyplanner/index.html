@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>學生課業複習規劃</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/zh-tw.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif;
+    background-color: #eef2ff;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .glass {
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .status-not_started { background:#e5e7eb; color:#374151; }
+  .status-reviewing  { background:#fef3c7; color:#92400e; }
+  .status-done       { background:#d1fae5; color:#065f46; }
+  .status-redo       { background:#fee2e2; color:#991b1b; }
+  .status-badge { font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+
+  .fc { font-size: 13px; }
+  .fc .fc-day-today { background:#fef9c3 !important; }
+  .fc .fc-toolbar-title { font-size: 1.1rem !important; }
+  .fc-event { cursor: pointer; }
+
+  .modal-backdrop { background: rgba(0,0,0,0.45); }
+
+  /* ===== 觸控/平板響應式 ===== */
+  /* 平板及以下:加大按鈕觸控區、月曆字級調整 */
+  @media (max-width: 1024px) {
+    button:not(.fc-button), .status-badge {
+      min-height: 36px;
+      padding-top: 6px; padding-bottom: 6px;
+    }
+    .fc .fc-button { padding: 0.45em 0.75em !important; font-size: 0.9rem !important; }
+    .fc .fc-toolbar { flex-wrap: wrap; gap: 4px; }
+    .fc .fc-toolbar-chunk { display: flex; gap: 4px; }
+    input[type="checkbox"] { width: 20px; height: 20px; }
+  }
+  /* 手機:月曆字更小、modal 全幅 */
+  @media (max-width: 640px) {
+    .fc { font-size: 11px; }
+    .fc .fc-toolbar-title { font-size: 0.95rem !important; }
+    .fc .fc-daygrid-day-number { padding: 2px 4px; font-size: 11px; }
+    #modal { padding: 0 !important; align-items: flex-end !important; }
+    #modal > div { max-width: 100% !important; max-height: 92vh !important; border-radius: 12px 12px 0 0; }
+    h1.text-xl { font-size: 1rem; }
+    #todayLabel { font-size: 0.85rem; width: 100%; order: 99; }
+  }
+  /* iOS Safari 防止橡皮擦縮放 */
+  input, select, textarea { font-size: 16px; }
+
+  /* ===== 打卡熱力圖 ===== */
+  .heatmap-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: 14px;
+    gap: 3px;
+  }
+  .heatmap-cell {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    background: #ebedf0;
+    cursor: help;
+    transition: transform 0.1s;
+  }
+  .heatmap-cell:hover { transform: scale(1.3); outline: 1px solid #6366f1; }
+  .hm-0 { background: #ebedf0; }
+  .hm-1 { background: #c6e48b; }
+  .hm-2 { background: #7bc96f; }
+  .hm-3 { background: #239a3b; }
+  .hm-4 { background: #196127; }
+  .hm-future { background: #f9fafb; opacity: 0.5; }
+  @media (max-width: 640px) {
+    .heatmap-grid { grid-auto-columns: 11px; gap: 2px; }
+    .heatmap-cell { width: 11px; height: 11px; }
+  }
+  .resource-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 6px;
+    background: #eef2ff; color: #3730a3; font-size: 12px;
+    text-decoration: none; margin: 2px 2px 0 0;
+  }
+  .resource-link:hover { background: #c7d2fe; }
+
+  .ring-progress {
+    --p: 0;
+    background:
+      conic-gradient(#10b981 calc(var(--p)*1%), #e5e7eb 0);
+    border-radius: 50%;
+    width: 44px; height: 44px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:#065f46;
+  }
+  .ring-progress::before {
+    content: ""; position:absolute; width:32px; height:32px;
+    background: white; border-radius:50%;
+  }
+  .ring-wrap { position: relative; display:inline-flex; }
+  .ring-text { position: relative; z-index:1; }
+
+  /* Print A3 landscape */
+  @media print {
+    @page { size: A3 landscape; margin: 8mm; }
+    html, body { background: white !important; }
+    body { background-image: none !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .glass { background: white !important; box-shadow:none !important; backdrop-filter:none !important; }
+    main { padding: 0 !important; max-width:100% !important; }
+    .print-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1.6fr !important;
+      gap: 6mm !important;
+    }
+    .fc { font-size: 11px; }
+    .fc .fc-toolbar { display:none; }
+    section, aside { break-inside: avoid; }
+    .print-charts { display:grid; grid-template-columns: 1fr 1fr; gap:6mm; }
+  }
+  .print-only { display:none; }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<header class="no-print sticky top-0 z-30 glass shadow">
+  <div class="max-w-screen-2xl mx-auto px-4 py-2 flex flex-wrap items-center gap-3">
+    <h1 class="text-xl font-bold text-indigo-700">📚 課業複習規劃</h1>
+    <div class="flex items-center gap-2">
+      <select id="studentSelect" class="border rounded px-2 py-1 bg-white"></select>
+      <button id="manageStudentsBtn" class="text-sm px-2 py-1 bg-indigo-100 rounded hover:bg-indigo-200">管理學生</button>
+    </div>
+    <div id="todayLabel" class="ml-2 font-medium text-gray-700"></div>
+    <div class="flex-1"></div>
+    <input type="file" id="bgUpload" accept="image/*" class="hidden" />
+    <input type="file" id="importFile" accept="application/json,.json" class="hidden" />
+    <button id="bgBtn" class="text-sm px-3 py-1 bg-purple-100 rounded hover:bg-purple-200">🖼️ 換背景</button>
+    <button id="bgResetBtn" class="text-sm px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">重設</button>
+    <button id="settingsBtn" class="text-sm px-3 py-1 bg-yellow-100 rounded hover:bg-yellow-200">⚙️ 設定</button>
+    <button id="printBtn" class="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">🖨️ 列印 A3</button>
+  </div>
+</header>
+
+<!-- Print-only header -->
+<div class="print-only px-2 mt-2 mb-3">
+  <div class="flex items-baseline justify-between border-b pb-1">
+    <h1 id="printTitle" class="text-2xl font-bold">課業複習規劃</h1>
+    <div id="printSubtitle" class="text-sm text-gray-700"></div>
+  </div>
+</div>
+
+<main class="max-w-screen-2xl mx-auto p-4 space-y-4">
+
+  <!-- TOP: Sidebar + Calendar -->
+  <div class="grid grid-cols-12 gap-4 print-grid">
+
+    <aside class="col-span-12 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+      <!-- 考試倒數 -->
+      <div class="glass rounded-lg shadow p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold text-lg">⏰ 考試倒數</h2>
+          <button id="addExamBtn" class="no-print text-sm px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600">+ 新增</button>
+        </div>
+        <ul id="examList" class="space-y-2 text-sm"></ul>
+      </div>
+
+      <!-- 今日待辦 -->
+      <div class="glass rounded-lg shadow p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold text-lg">✅ 今日待辦</h2>
+          <div class="ring-wrap"><div class="ring-progress" id="todayRing"><span class="ring-text" id="todayRingText">0%</span></div></div>
+        </div>
+        <ul id="todayTaskList" class="space-y-1 text-sm"></ul>
+      </div>
+
+      <!-- 今日讀書時數記錄 -->
+      <div class="glass rounded-lg shadow p-4 no-print md:col-span-2 lg:col-span-1">
+        <h2 class="font-bold text-lg mb-2">⏱️ 今日讀書時數</h2>
+        <form id="studyLogForm" class="flex flex-wrap gap-2 items-end text-sm">
+          <select id="logSubject" class="border rounded px-2 py-2 flex-1 min-w-[110px]"></select>
+          <input id="logMinutes" type="number" min="1" placeholder="分鐘" class="border rounded px-2 py-2 w-24" required />
+          <button class="px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600">記錄</button>
+        </form>
+        <div id="todayLogList" class="mt-2 text-xs text-gray-700 space-y-1"></div>
+      </div>
+    </aside>
+
+    <!-- Calendar -->
+    <section class="col-span-12 lg:col-span-8 glass rounded-lg shadow p-3 sm:p-4">
+      <div id="calendar"></div>
+    </section>
+  </div>
+
+  <!-- 學科 + 章節 -->
+  <section class="glass rounded-lg shadow p-4">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <h2 class="font-bold text-lg">📖 學科與章節進度</h2>
+      <div class="no-print flex gap-2">
+        <button id="addSubjectBtn" class="text-sm px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600">+ 新增學科</button>
+        <button id="batchSubjectsBtn" class="text-sm px-3 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200" title="批次貼上多個學科">📝 批次</button>
+      </div>
+    </div>
+    <div id="subjectsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+  </section>
+
+  <!-- 打卡熱力圖 -->
+  <section class="glass rounded-lg shadow p-4">
+    <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
+      <h2 class="font-bold text-lg">🔥 打卡熱力圖 <span id="streakLabel" class="text-sm font-normal text-orange-600 ml-2"></span></h2>
+      <div class="text-xs text-gray-600">
+        每日目標 <span id="goalLabel" class="font-semibold">--</span> 分鐘 ·
+        <span class="inline-flex items-center gap-1 ml-1">
+          少 <span class="heatmap-cell hm-0 inline-block"></span>
+          <span class="heatmap-cell hm-1 inline-block"></span>
+          <span class="heatmap-cell hm-2 inline-block"></span>
+          <span class="heatmap-cell hm-3 inline-block"></span>
+          <span class="heatmap-cell hm-4 inline-block"></span> 多
+        </span>
+      </div>
+    </div>
+    <div class="overflow-x-auto"><div id="heatmap" class="heatmap-grid"></div></div>
+  </section>
+
+  <!-- 圖表 -->
+  <section class="glass rounded-lg shadow p-4">
+    <h2 class="font-bold text-lg mb-3">📊 讀書時數統計</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 print-charts">
+      <div>
+        <div class="text-sm font-medium mb-1">近 7 日每日總時數 (分鐘)</div>
+        <canvas id="weeklyChart" height="140"></canvas>
+      </div>
+      <div>
+        <div class="text-sm font-medium mb-1">近 30 日各科時數佔比</div>
+        <canvas id="subjectChart" height="140"></canvas>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Generic Modal ===== -->
+<div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
+    <div class="flex items-center justify-between border-b px-4 py-2">
+      <h3 id="modalTitle" class="font-bold"></h3>
+      <button onclick="closeModal()" class="text-2xl leading-none text-gray-500 hover:text-gray-800">&times;</button>
+    </div>
+    <div id="modalBody" class="p-4"></div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div id="toastBox" class="fixed top-4 right-4 z-[60] space-y-2"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+/* =================== CONFIG =================== */
+const SUPABASE_URL = 'https://tazzyomgrdwprvdpeuid.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4PNZ1n8sWhCFUTPu81CEVw_nc6a1St4';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* =================== STATE =================== */
+const state = {
+  students: [],
+  currentStudentId: null,
+  subjects: [],
+  chapters: [],
+  exams: [],
+  examChapters: [],
+  tasks: [],
+  studyLogs: [],
+  recurringTemplates: [],
+  calendar: null,
+  weeklyChart: null,
+  subjectChart: null,
+};
+const WEEKDAY_LABEL = ['日','一','二','三','四','五','六'];
+let lastFocusedSubject = null;
+const STATUS_LABEL = { not_started:'未讀', reviewing:'複習中', done:'已完成', redo:'需重做' };
+const STATUS_NEXT = { not_started:'reviewing', reviewing:'done', done:'redo', redo:'not_started' };
+
+/* =================== HELPERS =================== */
+const $ = (id) => document.getElementById(id);
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const fmtDate = (iso) => {
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const w = ['日','一','二','三','四','五','六'][dt.getDay()];
+  return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')} (週${w})`;
+};
+const daysBetween = (iso) => {
+  const t = new Date(todayISO());
+  const e = new Date(iso);
+  return Math.round((e - t) / 86400000);
+};
+function toast(msg, type='ok') {
+  const div = document.createElement('div');
+  div.className = `px-4 py-2 rounded shadow text-white ${type==='err'?'bg-red-500':'bg-green-600'}`;
+  div.textContent = msg;
+  $('toastBox').appendChild(div);
+  setTimeout(() => div.remove(), 2800);
+}
+function openModal(title, html) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = html;
+  $('modal').classList.remove('hidden');
+}
+window.closeModal = () => $('modal').classList.add('hidden');
+
+/* =================== DATA =================== */
+async function loadAll() {
+  try {
+    const [stu, sub, chp, ex, exc, tk, lg, rt] = await Promise.all([
+      sb.from('students').select('*').order('created_at'),
+      sb.from('subjects').select('*').order('created_at'),
+      sb.from('chapters').select('*').order('order_index').order('created_at'),
+      sb.from('exams').select('*').order('exam_date'),
+      sb.from('exam_chapters').select('*'),
+      sb.from('tasks').select('*').order('task_date'),
+      sb.from('study_logs').select('*').order('log_date', { ascending:false }),
+      sb.from('recurring_templates').select('*').order('weekday'),
+    ]);
+    if (stu.error) throw stu.error;
+    state.students         = stu.data || [];
+    state.subjects         = sub.data || [];
+    state.chapters         = chp.data || [];
+    state.exams            = ex.data  || [];
+    state.examChapters     = exc.data || [];
+    state.tasks            = tk.data  || [];
+    state.studyLogs        = lg.data  || [];
+    state.recurringTemplates = rt.data || [];
+
+    if (!state.currentStudentId && state.students.length) {
+      state.currentStudentId = localStorage.getItem('plannerStudent') || state.students[0].id;
+      if (!state.students.find(s=>s.id===state.currentStudentId)) state.currentStudentId = state.students[0].id;
+    }
+    renderAll();
+  } catch (e) {
+    toast('讀取資料失敗:' + e.message, 'err');
+    console.error(e);
+  }
+}
+
+/* =================== STUDENTS =================== */
+function renderStudentSelect() {
+  const sel = $('studentSelect');
+  if (!state.students.length) {
+    sel.innerHTML = '<option value="">尚未建立學生</option>';
+    return;
+  }
+  sel.innerHTML = state.students.map(s =>
+    `<option value="${s.id}" ${s.id===state.currentStudentId?'selected':''}>${escapeHtml(s.name)}${s.grade?` (${escapeHtml(s.grade)})`:''}</option>`
+  ).join('');
+}
+$('studentSelect').onchange = (e) => {
+  state.currentStudentId = e.target.value;
+  localStorage.setItem('plannerStudent', state.currentStudentId);
+  renderAll();
+};
+$('manageStudentsBtn').onclick = () => {
+  const list = state.students.map(s => `
+    <li class="flex items-center justify-between py-1 border-b">
+      <span>${escapeHtml(s.name)}${s.grade?` <span class="text-xs text-gray-500">(${escapeHtml(s.grade)})</span>`:''}</span>
+      <span class="space-x-1">
+        <button class="text-xs px-2 py-1 bg-gray-100 rounded" onclick="renameStudent('${s.id}')">改名</button>
+        <button class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded" onclick="deleteStudent('${s.id}')">刪除</button>
+      </span>
+    </li>`).join('') || '<li class="text-gray-500 text-sm">尚無學生</li>';
+  openModal('管理學生', `
+    <ul class="mb-3">${list}</ul>
+    <form onsubmit="addStudent(event)" class="flex gap-2 items-end">
+      <div class="flex-1">
+        <label class="text-xs text-gray-600">姓名</label>
+        <input name="name" required class="w-full border rounded px-2 py-1" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-600">年級 (選填)</label>
+        <input name="grade" class="border rounded px-2 py-1 w-24" />
+      </div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">新增</button>
+    </form>
+  `);
+};
+window.addStudent = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error, data } = await sb.from('students').insert({ name: fd.get('name'), grade: fd.get('grade') || null }).select().single();
+  if (error) return toast(error.message, 'err');
+  state.students.push(data);
+  if (!state.currentStudentId) state.currentStudentId = data.id;
+  closeModal(); toast('已新增學生'); renderAll();
+};
+window.renameStudent = async (id) => {
+  const s = state.students.find(x=>x.id===id);
+  const name = prompt('新姓名', s.name);
+  if (!name) return;
+  const { error } = await sb.from('students').update({ name }).eq('id', id);
+  if (error) return toast(error.message, 'err');
+  s.name = name; closeModal(); renderAll();
+};
+window.deleteStudent = async (id) => {
+  if (!confirm('刪除此學生及其所有資料?')) return;
+  const { error } = await sb.from('students').delete().eq('id', id);
+  if (error) return toast(error.message, 'err');
+  state.students = state.students.filter(s=>s.id!==id);
+  if (state.currentStudentId === id) state.currentStudentId = state.students[0]?.id || null;
+  closeModal(); await loadAll();
+};
+
+/* =================== SUBJECTS / CHAPTERS =================== */
+function studentSubjects() { return state.subjects.filter(s => s.student_id === state.currentStudentId); }
+function subjectChapters(sid) { return state.chapters.filter(c => c.subject_id === sid); }
+
+function renderSubjects() {
+  const c = $('subjectsContainer');
+  const subs = studentSubjects();
+  if (!subs.length) {
+    c.innerHTML = '<div class="text-gray-500 text-sm col-span-full">尚未建立任何學科,點右上角「+ 新增學科」開始。</div>';
+    return;
+  }
+  c.innerHTML = subs.map(s => {
+    const chs = subjectChapters(s.id);
+    const total = chs.length;
+    const done = chs.filter(c=>c.status==='done').length;
+    const pct = total ? Math.round(done*100/total) : 0;
+    return `
+      <div class="border rounded-lg p-3 bg-white" style="border-left:6px solid ${s.color}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-semibold" style="color:${s.color}">${escapeHtml(s.name)}</div>
+          <div class="flex items-center gap-1 no-print">
+            <button class="text-xs px-2 py-1 bg-gray-100 rounded" onclick="editSubject('${s.id}')">⚙</button>
+            <button class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded" onclick="deleteSubject('${s.id}')">×</button>
+          </div>
+        </div>
+        <div class="text-xs text-gray-600 mb-1">${done}/${total} 章節完成 · ${pct}%</div>
+        <div class="w-full h-2 bg-gray-200 rounded mb-2 overflow-hidden">
+          <div class="h-full" style="width:${pct}%;background:${s.color}"></div>
+        </div>
+        <ul class="space-y-1 text-sm">
+          ${chs.map(c => {
+            const resCount = (c.resources||[]).length;
+            const links = (c.resources||[]).map(r => `<a class="resource-link" href="${escapeAttr(r.url)}" target="_blank" rel="noopener" title="${escapeAttr(r.url)}">${resourceIcon(r.url)} ${escapeHtml(r.title||r.url)}</a>`).join('');
+            return `
+            <li class="border-b border-dashed last:border-0 pb-1 last:pb-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="flex-1 truncate">${escapeHtml(c.name)}</span>
+                <button class="status-badge status-${c.status}" onclick="cycleChapterStatus('${c.id}')" title="點擊切換狀態">${STATUS_LABEL[c.status]}</button>
+                <button class="no-print text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded" onclick="openChapterResources('${c.id}')" title="管理資源連結">🔗${resCount?` ${resCount}`:''}</button>
+                <button class="no-print text-xs text-red-600 hover:underline" onclick="deleteChapter('${c.id}')">刪</button>
+              </div>
+              ${links?`<div class="ml-1 mt-1 flex flex-wrap">${links}</div>`:''}
+            </li>`;
+          }).join('') || '<li class="text-xs text-gray-400">尚無章節</li>'}
+        </ul>
+        <form onsubmit="addChapterInline(event,'${s.id}')" class="no-print mt-2 flex gap-1">
+          <input data-chapter-input="${s.id}" name="name" placeholder="新增章節 (Enter 確認)" class="flex-1 border rounded px-2 py-1 text-sm"/>
+          <button type="submit" class="text-xs px-2 bg-indigo-500 text-white rounded" title="新增 (Enter)">+</button>
+          <button type="button" onclick="batchChapters('${s.id}')" class="text-xs px-2 bg-gray-100 rounded" title="批次新增多個章節">📝</button>
+        </form>
+      </div>`;
+  }).join('');
+
+  // 還原焦點到剛輸入的學科 input
+  if (lastFocusedSubject) {
+    const inp = document.querySelector(`[data-chapter-input="${lastFocusedSubject}"]`);
+    if (inp) { inp.focus(); inp.scrollIntoView({block:'nearest'}); }
+    lastFocusedSubject = null;
+  }
+}
+$('addSubjectBtn').onclick = () => {
+  if (!state.currentStudentId) return toast('請先建立學生','err');
+  openModal('新增學科', `
+    <form onsubmit="saveSubject(event)" class="space-y-3">
+      <div><label class="text-xs">學科名稱</label><input name="name" required class="w-full border rounded px-2 py-1"/></div>
+      <div><label class="text-xs">代表色</label><input type="color" name="color" value="#6366f1" class="w-16 h-8 border rounded"/></div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">儲存</button>
+    </form>
+  `);
+};
+$('batchSubjectsBtn').onclick = () => {
+  if (!state.currentStudentId) return toast('請先建立學生','err');
+  openModal('📝 批次新增學科', `
+    <p class="text-xs text-gray-500 mb-2">每行一個學科,格式:<code class="bg-gray-100 px-1">學科名稱</code> 或 <code class="bg-gray-100 px-1">學科名稱|#色碼</code>(色碼省略會自動配色)</p>
+    <form onsubmit="saveBatchSubjects(event)" class="space-y-2">
+      <textarea name="text" rows="8" required class="w-full border rounded p-2 text-sm font-mono" placeholder="國文|#dc2626&#10;英文|#2563eb&#10;數學|#16a34a&#10;自然|#9333ea&#10;社會|#ea580c"></textarea>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">新增</button>
+    </form>
+  `);
+  setTimeout(()=>$('modalBody').querySelector('textarea')?.focus(), 50);
+};
+window.saveBatchSubjects = async (e) => {
+  e.preventDefault();
+  const text = new FormData(e.target).get('text');
+  const palette = ['#6366f1','#dc2626','#2563eb','#16a34a','#9333ea','#ea580c','#0891b2','#db2777','#65a30d','#7c3aed'];
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const rows = lines.map((line,i) => {
+    const [name, color] = line.split('|').map(s=>(s||'').trim());
+    return {
+      student_id: state.currentStudentId,
+      name,
+      color: (color && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : palette[i % palette.length],
+    };
+  });
+  const { error, data } = await sb.from('subjects').insert(rows).select();
+  if (error) return toast(error.message,'err');
+  data.forEach(d => state.subjects.push(d));
+  toast(`已新增 ${data.length} 個學科`);
+  closeModal();
+  renderAll();
+};
+window.saveSubject = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error, data } = await sb.from('subjects').insert({
+    student_id: state.currentStudentId, name: fd.get('name'), color: fd.get('color')
+  }).select().single();
+  if (error) return toast(error.message, 'err');
+  state.subjects.push(data); closeModal(); renderAll();
+};
+window.editSubject = (id) => {
+  const s = state.subjects.find(x=>x.id===id);
+  openModal('編輯學科', `
+    <form onsubmit="updateSubject(event,'${id}')" class="space-y-3">
+      <div><label class="text-xs">學科名稱</label><input name="name" required value="${escapeAttr(s.name)}" class="w-full border rounded px-2 py-1"/></div>
+      <div><label class="text-xs">代表色</label><input type="color" name="color" value="${s.color}" class="w-16 h-8 border rounded"/></div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">儲存</button>
+    </form>
+  `);
+};
+window.updateSubject = async (e, id) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error } = await sb.from('subjects').update({ name: fd.get('name'), color: fd.get('color') }).eq('id', id);
+  if (error) return toast(error.message, 'err');
+  const s = state.subjects.find(x=>x.id===id); s.name = fd.get('name'); s.color = fd.get('color');
+  closeModal(); renderAll();
+};
+window.deleteSubject = async (id) => {
+  if (!confirm('刪除此學科及所有章節?')) return;
+  const { error } = await sb.from('subjects').delete().eq('id', id);
+  if (error) return toast(error.message, 'err');
+  state.subjects = state.subjects.filter(s=>s.id!==id);
+  state.chapters = state.chapters.filter(c=>c.subject_id!==id);
+  renderAll();
+};
+window.addChapter = (subjectId) => {
+  const name = prompt('章節名稱');
+  if (!name) return;
+  sb.from('chapters').insert({ subject_id: subjectId, name }).select().single().then(({data, error}) => {
+    if (error) return toast(error.message,'err');
+    state.chapters.push(data); renderSubjects();
+  });
+};
+window.addChapterInline = async (e, subjectId) => {
+  e.preventDefault();
+  const input = e.target.querySelector('input[name="name"]');
+  const raw = input.value;
+  if (!raw.trim()) return;
+  // 支援貼上多行(Excel/Notion 複製)
+  const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const rows = lines.map(name => ({ subject_id: subjectId, name }));
+  const { error, data } = await sb.from('chapters').insert(rows).select();
+  if (error) return toast(error.message,'err');
+  data.forEach(d => state.chapters.push(d));
+  if (lines.length > 1) toast(`已新增 ${lines.length} 章`);
+  input.value = '';
+  lastFocusedSubject = subjectId;
+  renderSubjects();
+};
+window.batchChapters = (subjectId) => {
+  const s = state.subjects.find(x=>x.id===subjectId);
+  openModal(`📝 批次新增章節 - ${escapeHtml(s.name)}`, `
+    <p class="text-xs text-gray-500 mb-2">每行一個章節名稱(可直接貼上 Excel 一欄)</p>
+    <form onsubmit="saveBatchChapters(event,'${subjectId}')" class="space-y-2">
+      <textarea name="text" rows="10" required class="w-full border rounded p-2 text-sm font-mono" placeholder="第1章 三角函數&#10;第2章 數列與級數&#10;第3章 微積分入門"></textarea>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">新增</button>
+    </form>
+  `);
+  setTimeout(()=>$('modalBody').querySelector('textarea')?.focus(), 50);
+};
+window.saveBatchChapters = async (e, subjectId) => {
+  e.preventDefault();
+  const text = new FormData(e.target).get('text');
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const rows = lines.map(name => ({ subject_id: subjectId, name }));
+  const { error, data } = await sb.from('chapters').insert(rows).select();
+  if (error) return toast(error.message,'err');
+  data.forEach(d => state.chapters.push(d));
+  toast(`已新增 ${data.length} 章`);
+  closeModal();
+  renderSubjects();
+};
+window.cycleChapterStatus = async (id) => {
+  const c = state.chapters.find(x=>x.id===id);
+  const next = STATUS_NEXT[c.status] || 'not_started';
+  const { error } = await sb.from('chapters').update({ status: next }).eq('id', id);
+  if (error) return toast(error.message,'err');
+  c.status = next; renderSubjects();
+};
+window.deleteChapter = async (id) => {
+  if (!confirm('刪除此章節?')) return;
+  const { error } = await sb.from('chapters').delete().eq('id', id);
+  if (error) return toast(error.message,'err');
+  state.chapters = state.chapters.filter(c=>c.id!==id);
+  renderSubjects();
+};
+
+/* =================== EXAMS =================== */
+function studentExams() {
+  return state.exams
+    .filter(e => e.student_id === state.currentStudentId)
+    .sort((a,b)=> a.exam_date.localeCompare(b.exam_date));
+}
+function renderExams() {
+  const ul = $('examList');
+  const exs = studentExams();
+  if (!exs.length) { ul.innerHTML = '<li class="text-gray-500 text-xs">尚無考試</li>'; return; }
+  ul.innerHTML = exs.map(e => {
+    const d = daysBetween(e.exam_date);
+    const tone = d < 0 ? 'text-gray-400' : d <= 7 ? 'text-red-600' : d <= 30 ? 'text-orange-600' : 'text-indigo-600';
+    const label = d < 0 ? `已過 ${-d} 天` : d === 0 ? '就是今天!' : `D-${d}`;
+    const boundCount = state.examChapters.filter(ec => ec.exam_id === e.id).length;
+    return `
+      <li class="flex items-start justify-between gap-2 border-b pb-1 hover:bg-indigo-50 cursor-pointer rounded px-1" onclick="openExamSprint('${e.id}')">
+        <div class="flex-1">
+          <div class="font-semibold">${escapeHtml(e.name)} <span class="text-xs text-indigo-500">📋 ${boundCount}</span></div>
+          <div class="text-xs text-gray-500">${fmtDate(e.exam_date)}${e.description?' · '+escapeHtml(e.description):''}</div>
+        </div>
+        <div class="text-right">
+          <div class="font-bold ${tone}">${label}</div>
+          <button class="no-print text-xs text-red-600 hover:underline" onclick="event.stopPropagation();deleteExam('${e.id}')">刪</button>
+        </div>
+      </li>`;
+  }).join('');
+}
+$('addExamBtn').onclick = () => {
+  if (!state.currentStudentId) return toast('請先建立學生','err');
+  openModal('新增考試', `
+    <form onsubmit="saveExam(event)" class="space-y-3">
+      <div><label class="text-xs">考試名稱</label><input name="name" required class="w-full border rounded px-2 py-1"/></div>
+      <div><label class="text-xs">日期</label><input name="exam_date" type="date" required class="w-full border rounded px-2 py-1"/></div>
+      <div><label class="text-xs">備註 (選填)</label><input name="description" class="w-full border rounded px-2 py-1"/></div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">儲存</button>
+    </form>
+  `);
+};
+window.saveExam = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error, data } = await sb.from('exams').insert({
+    student_id: state.currentStudentId,
+    name: fd.get('name'),
+    exam_date: fd.get('exam_date'),
+    description: fd.get('description') || null,
+  }).select().single();
+  if (error) return toast(error.message,'err');
+  state.exams.push(data); closeModal(); renderExams();
+};
+window.deleteExam = async (id) => {
+  if (!confirm('刪除此考試?')) return;
+  const { error } = await sb.from('exams').delete().eq('id', id);
+  if (error) return toast(error.message,'err');
+  state.exams = state.exams.filter(e=>e.id!==id);
+  renderExams();
+};
+
+/* =================== TASKS / CALENDAR =================== */
+function studentTasks() { return state.tasks.filter(t => t.student_id === state.currentStudentId); }
+
+function renderCalendar() {
+  if (state.calendar) state.calendar.destroy();
+  const events = studentTasks().map(t => {
+    const sub = state.subjects.find(s=>s.id===t.subject_id);
+    return {
+      id: t.id,
+      title: (sub ? sub.name + ' · ' : '') + t.title + (t.done?' ✓':''),
+      start: t.task_date,
+      allDay: true,
+      backgroundColor: sub?.color || '#6366f1',
+      borderColor: sub?.color || '#6366f1',
+      textColor: '#fff',
+      classNames: t.done ? ['fc-event-done'] : [],
+      extendedProps: { task: t },
+    };
+  });
+  // 加考試
+  studentExams().forEach(e => {
+    events.push({
+      id: 'exam-'+e.id, title: '📝 ' + e.name, start: e.exam_date, allDay: true,
+      backgroundColor: '#dc2626', borderColor: '#dc2626', textColor: '#fff', display: 'block'
+    });
+  });
+  const isNarrow = window.innerWidth < 640;
+  state.calendar = new FullCalendar.Calendar($('calendar'), {
+    initialView: isNarrow ? 'listWeek' : 'dayGridMonth',
+    locale: 'zh-tw',
+    firstDay: 1,
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,listWeek'
+    },
+    buttonText: { listWeek: '列表', dayGridMonth: '月' },
+    height: 'auto',
+    dayMaxEvents: isNarrow ? 2 : 4,
+    eventDisplay: 'block',
+    events,
+    longPressDelay: 300,
+    dateClick: (info) => taskModal(info.dateStr),
+    eventClick: (info) => {
+      const t = info.event.extendedProps.task;
+      if (t) taskModal(t.task_date, t);
+    },
+    eventDrop: async (info) => {
+      const t = info.event.extendedProps.task;
+      if (!t) { info.revert(); return; }
+      const newDate = info.event.startStr;
+      const { error } = await sb.from('tasks').update({ task_date: newDate }).eq('id', t.id);
+      if (error) { toast(error.message,'err'); info.revert(); return; }
+      t.task_date = newDate; renderTodayTasks();
+    },
+    editable: true,
+    windowResize: (arg) => {
+      const narrow = window.innerWidth < 640;
+      const want = narrow ? 'listWeek' : 'dayGridMonth';
+      if (arg.view.type !== want && arg.view.type === (narrow?'dayGridMonth':'listWeek')) {
+        state.calendar.changeView(want);
+      }
+    }
+  });
+  state.calendar.render();
+}
+
+function taskModal(dateStr, existing) {
+  const subs = studentSubjects();
+  const subOptions = subs.map(s => `<option value="${s.id}" ${existing&&existing.subject_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  const chs = state.chapters.filter(c => subs.find(s=>s.id===c.subject_id));
+  const chOptions = `<option value="">(無章節)</option>` + chs.map(c => {
+    const subj = subs.find(s=>s.id===c.subject_id);
+    return `<option value="${c.id}" data-sub="${c.subject_id}" ${existing&&existing.chapter_id===c.id?'selected':''}>${escapeHtml(subj.name)} - ${escapeHtml(c.name)}</option>`;
+  }).join('');
+  const dailyTasks = studentTasks().filter(t => t.task_date === dateStr);
+  const list = dailyTasks.map(t => {
+    const s = subs.find(x=>x.id===t.subject_id);
+    return `<li class="flex items-center gap-2 border-b py-1 text-sm">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')"/>
+      <span class="flex-1 ${t.done?'line-through text-gray-400':''}" style="${s?'color:'+s.color:''}">${escapeHtml(t.title)}${s?` <span class="text-xs text-gray-500">(${escapeHtml(s.name)})</span>`:''}</span>
+      <button class="text-xs text-red-600 hover:underline" onclick="deleteTask('${t.id}')">刪</button>
+    </li>`;
+  }).join('') || '<li class="text-xs text-gray-400">尚無任務</li>';
+
+  openModal(`${dateStr} 的任務`, `
+    <ul class="mb-3 max-h-48 overflow-auto">${list}</ul>
+    <form onsubmit="saveTask(event,'${dateStr}')" class="space-y-2 border-t pt-3">
+      <div class="text-xs font-semibold text-gray-600">➕ 新增任務(Enter 確認、自動續輸)</div>
+      <div><input id="taskTitleInput" name="title" required placeholder="任務內容" class="w-full border rounded px-2 py-1"/></div>
+      <div class="flex gap-2">
+        <div class="flex-1"><label class="text-xs">學科</label>
+          <select name="subject_id" id="taskSubjectSel" class="w-full border rounded px-2 py-1">
+            <option value="">(無)</option>${subOptions}
+          </select>
+        </div>
+        <div class="flex-1"><label class="text-xs">章節</label>
+          <select name="chapter_id" id="taskChapterSel" class="w-full border rounded px-2 py-1">${chOptions}</select>
+        </div>
+      </div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">新增任務</button>
+    </form>
+    <details class="mt-3 border-t pt-3">
+      <summary class="cursor-pointer text-sm font-semibold text-indigo-700">📝 批次新增多個任務</summary>
+      <form onsubmit="saveBatchTasks(event,'${dateStr}')" class="mt-2 space-y-2">
+        <div class="flex gap-2">
+          <div class="flex-1"><label class="text-xs">統一學科 (選填)</label>
+            <select name="subject_id" class="w-full border rounded px-2 py-1">
+              <option value="">(無)</option>${subOptions}
+            </select>
+          </div>
+        </div>
+        <textarea name="text" rows="6" required class="w-full border rounded p-2 text-sm" placeholder="每行一個任務,例如:&#10;讀數學第三章&#10;寫英文克漏字 10 題&#10;背英文單字 50 個"></textarea>
+        <button class="px-3 py-1 bg-indigo-500 text-white rounded">批次新增</button>
+      </form>
+    </details>
+  `);
+  // 章節聯動
+  const subSel = $('taskSubjectSel'); const chSel = $('taskChapterSel');
+  const filterCh = () => {
+    const sid = subSel.value;
+    [...chSel.options].forEach(o => {
+      if (!o.value) { o.hidden = false; return; }
+      o.hidden = sid && o.dataset.sub !== sid;
+    });
+  };
+  if (subSel) { subSel.onchange = filterCh; filterCh(); }
+  // 自動聚焦,方便連續輸入
+  setTimeout(()=>$('taskTitleInput')?.focus(), 50);
+}
+window.saveBatchTasks = async (e, dateStr) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const subId = fd.get('subject_id') || null;
+  const text = fd.get('text');
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const rows = lines.map(title => ({
+    student_id: state.currentStudentId,
+    task_date: dateStr,
+    title,
+    subject_id: subId,
+    chapter_id: null,
+  }));
+  const { error, data } = await sb.from('tasks').insert(rows).select();
+  if (error) return toast(error.message,'err');
+  data.forEach(d => state.tasks.push(d));
+  toast(`已新增 ${data.length} 個任務`);
+  taskModal(dateStr);
+  renderCalendar(); renderTodayTasks();
+};
+window.saveTask = async (e, dateStr) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = {
+    student_id: state.currentStudentId,
+    task_date: dateStr,
+    title: fd.get('title'),
+    subject_id: fd.get('subject_id') || null,
+    chapter_id: fd.get('chapter_id') || null,
+  };
+  const { error, data } = await sb.from('tasks').insert(payload).select().single();
+  if (error) return toast(error.message,'err');
+  state.tasks.push(data);
+  taskModal(dateStr); // refresh modal list
+  renderCalendar(); renderTodayTasks();
+};
+window.toggleTask = async (id) => {
+  const t = state.tasks.find(x=>x.id===id);
+  const newDone = !t.done;
+  const { error } = await sb.from('tasks').update({ done: newDone }).eq('id', id);
+  if (error) return toast(error.message,'err');
+  t.done = newDone;
+  renderCalendar(); renderTodayTasks();
+  // refresh modal if open
+  if (!$('modal').classList.contains('hidden')) taskModal(t.task_date);
+};
+window.deleteTask = async (id) => {
+  const t = state.tasks.find(x=>x.id===id);
+  const { error } = await sb.from('tasks').delete().eq('id', id);
+  if (error) return toast(error.message,'err');
+  state.tasks = state.tasks.filter(x=>x.id!==id);
+  renderCalendar(); renderTodayTasks();
+  if (!$('modal').classList.contains('hidden') && t) taskModal(t.task_date);
+};
+
+function renderTodayTasks() {
+  const today = todayISO();
+  const todays = studentTasks().filter(t => t.task_date === today);
+  const ul = $('todayTaskList');
+  if (!todays.length) { ul.innerHTML = '<li class="text-gray-500 text-xs">今天沒有任務</li>'; }
+  else {
+    ul.innerHTML = todays.map(t => {
+      const s = state.subjects.find(x=>x.id===t.subject_id);
+      return `<li class="flex items-center gap-2">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')"/>
+        <span class="flex-1 ${t.done?'line-through text-gray-400':''}" style="${s?'color:'+s.color:''}">${escapeHtml(t.title)}</span>
+      </li>`;
+    }).join('');
+  }
+  const total = todays.length;
+  const done = todays.filter(t=>t.done).length;
+  const pct = total ? Math.round(done*100/total) : 0;
+  const ring = $('todayRing');
+  ring.style.setProperty('--p', pct);
+  $('todayRingText').textContent = pct + '%';
+}
+
+/* =================== STUDY LOGS =================== */
+function renderLogForm() {
+  const sel = $('logSubject');
+  sel.innerHTML = '<option value="">(無學科)</option>' +
+    studentSubjects().map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  renderTodayLogs();
+}
+function renderTodayLogs() {
+  const today = todayISO();
+  const logs = state.studyLogs.filter(l => l.student_id === state.currentStudentId && l.log_date === today);
+  if (!logs.length) { $('todayLogList').innerHTML = '<div class="text-gray-400">今日尚無記錄</div>'; return; }
+  $('todayLogList').innerHTML = logs.map(l => {
+    const s = state.subjects.find(x=>x.id===l.subject_id);
+    return `<div class="flex items-center justify-between">
+      <span style="${s?'color:'+s.color:''}">${s?escapeHtml(s.name):'(無)'} · ${l.minutes} 分</span>
+      <button class="text-xs text-red-600 hover:underline" onclick="deleteLog('${l.id}')">刪</button>
+    </div>`;
+  }).join('');
+}
+$('studyLogForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!state.currentStudentId) return toast('請先選擇學生','err');
+  const subjectId = $('logSubject').value || null;
+  const minutes = parseInt($('logMinutes').value, 10);
+  if (!minutes || minutes<=0) return;
+  const { error, data } = await sb.from('study_logs').insert({
+    student_id: state.currentStudentId, subject_id: subjectId, log_date: todayISO(), minutes
+  }).select().single();
+  if (error) return toast(error.message,'err');
+  state.studyLogs.unshift(data);
+  $('logMinutes').value = '';
+  renderTodayLogs(); renderCharts();
+  toast(`記錄 +${minutes} 分鐘`);
+};
+window.deleteLog = async (id) => {
+  const { error } = await sb.from('study_logs').delete().eq('id', id);
+  if (error) return toast(error.message,'err');
+  state.studyLogs = state.studyLogs.filter(l=>l.id!==id);
+  renderTodayLogs(); renderCharts();
+};
+
+/* =================== CHARTS =================== */
+function renderCharts() {
+  const logs = state.studyLogs.filter(l => l.student_id === state.currentStudentId);
+  // weekly: last 7 days
+  const days = [];
+  const today = new Date(todayISO());
+  for (let i=6; i>=0; i--) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    days.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
+  const weekly = days.map(d => logs.filter(l=>l.log_date===d).reduce((a,b)=>a+b.minutes,0));
+  if (state.weeklyChart) state.weeklyChart.destroy();
+  state.weeklyChart = new Chart($('weeklyChart'), {
+    type: 'bar',
+    data: {
+      labels: days.map(d=>d.slice(5)),
+      datasets: [{ label:'分鐘', data: weekly, backgroundColor:'#6366f1' }]
+    },
+    options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+  });
+  // 30-day subject breakdown
+  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate()-29);
+  const cutISO = cutoff.toISOString().slice(0,10);
+  const recent = logs.filter(l => l.log_date >= cutISO);
+  const bySub = {};
+  recent.forEach(l => { const k = l.subject_id || 'none'; bySub[k] = (bySub[k]||0) + l.minutes; });
+  const labels=[], values=[], colors=[];
+  for (const sid in bySub) {
+    if (sid === 'none') { labels.push('未指定'); colors.push('#9ca3af'); }
+    else {
+      const s = state.subjects.find(x=>x.id===sid);
+      labels.push(s?s.name:'已刪除'); colors.push(s?s.color:'#9ca3af');
+    }
+    values.push(bySub[sid]);
+  }
+  if (state.subjectChart) state.subjectChart.destroy();
+  if (!labels.length) { labels.push('尚無資料'); values.push(1); colors.push('#e5e7eb'); }
+  state.subjectChart = new Chart($('subjectChart'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+    options: { plugins:{ legend:{ position:'right', labels:{ font:{size:11} } } } }
+  });
+}
+
+/* =================== BACKGROUND =================== */
+function applyBackground() {
+  const bg = localStorage.getItem('plannerBg');
+  document.body.style.backgroundImage = bg ? `url(${bg})` : '';
+}
+$('bgBtn').onclick = () => $('bgUpload').click();
+$('bgUpload').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { localStorage.setItem('plannerBg', r.result); applyBackground(); toast('已更換背景'); };
+  r.readAsDataURL(f);
+};
+$('bgResetBtn').onclick = () => { localStorage.removeItem('plannerBg'); applyBackground(); };
+
+/* =================== PRINT =================== */
+$('printBtn').onclick = () => {
+  const stu = state.students.find(s=>s.id===state.currentStudentId);
+  $('printTitle').textContent = (stu?stu.name+' - ':'') + '課業複習規劃';
+  $('printSubtitle').textContent = '列印日期:' + fmtDate(todayISO());
+  setTimeout(()=>window.print(), 100);
+};
+
+/* =================== UTIL =================== */
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* =================== HEATMAP =================== */
+function currentStudent() { return state.students.find(s => s.id === state.currentStudentId); }
+
+function renderHeatmap() {
+  const grid = $('heatmap');
+  const stu = currentStudent();
+  const goal = (stu?.daily_goal_minutes) || 60;
+  $('goalLabel').textContent = goal;
+
+  // 顯示近 13 週(91 天) - 視覺較好
+  const weeks = 13;
+  const daysTotal = weeks * 7;
+  const today = new Date(todayISO());
+  // 對齊週日為起點(grid 第 1 列)
+  const todayDow = today.getDay(); // 0=Sun
+  const end = new Date(today); end.setDate(end.getDate() + (6 - todayDow));
+  const start = new Date(end); start.setDate(start.getDate() - (daysTotal - 1));
+
+  // 每日分鐘 map
+  const logs = state.studyLogs.filter(l => l.student_id === state.currentStudentId);
+  const minutesMap = {};
+  logs.forEach(l => { minutesMap[l.log_date] = (minutesMap[l.log_date]||0) + l.minutes; });
+
+  const cells = [];
+  let streak = 0, prevDay = null;
+  // 計算當前連續天數(由今天往回)
+  for (let i=0; i<365; i++) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const iso = isoOfDate(d);
+    const m = minutesMap[iso]||0;
+    if (m >= goal) streak++; else break;
+  }
+
+  for (let i=0; i<daysTotal; i++) {
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const iso = isoOfDate(d);
+    const m = minutesMap[iso]||0;
+    const future = d > today;
+    let level = 0;
+    if (!future && goal > 0) {
+      const ratio = m / goal;
+      if (ratio >= 1.5) level = 4;
+      else if (ratio >= 1.0) level = 3;
+      else if (ratio >= 0.6) level = 2;
+      else if (ratio >= 0.2) level = 1;
+    }
+    const cls = future ? 'hm-future' : 'hm-' + level;
+    const tip = `${iso}` + (future?' (未來)':` · ${m} 分${m>=goal?' ✓ 達標':''}`);
+    cells.push(`<div class="heatmap-cell ${cls}" title="${tip}"></div>`);
+  }
+  grid.innerHTML = cells.join('');
+  $('streakLabel').textContent = streak > 0 ? `🔥 連續 ${streak} 天達標!` : '';
+}
+function isoOfDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function resourceIcon(url) {
+  const u = (url||'').toLowerCase();
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return '▶️';
+  if (u.endsWith('.pdf')) return '📄';
+  if (u.includes('docs.google') || u.includes('drive.google')) return '📁';
+  if (u.includes('khan')) return '🎓';
+  return '🔗';
+}
+
+/* =================== EXAM SPRINT =================== */
+window.openExamSprint = (examId) => {
+  const exam = state.exams.find(e=>e.id===examId);
+  if (!exam) return;
+  const subs = studentSubjects();
+  const allChapters = state.chapters.filter(c => subs.find(s=>s.id===c.subject_id));
+  const bound = new Set(state.examChapters.filter(ec=>ec.exam_id===examId).map(ec=>ec.chapter_id));
+  const d = daysBetween(exam.exam_date);
+  const dLabel = d < 0 ? `已過 ${-d} 天` : d===0 ? '就是今天!' : `還剩 ${d} 天`;
+
+  // 衝刺清單(已綁定 + 未完成)
+  const sprintList = allChapters.filter(c => bound.has(c.id) && c.status !== 'done');
+  const sprintHtml = sprintList.length ? sprintList.map(c => {
+    const subj = subs.find(s=>s.id===c.subject_id);
+    return `<li class="flex items-center justify-between gap-2 py-1 border-b">
+      <span><span class="status-badge status-${c.status}">${STATUS_LABEL[c.status]}</span>
+        <span style="color:${subj?.color}" class="ml-1 font-medium">${escapeHtml(subj?.name||'')}</span>
+        <span class="text-gray-700"> · ${escapeHtml(c.name)}</span></span>
+      <button class="text-xs px-2 py-1 bg-indigo-500 text-white rounded" onclick="addSprintTask('${c.id}','${exam.exam_date}')">→ 排入任務</button>
+    </li>`;
+  }).join('') : '<li class="text-xs text-gray-500 py-2">已綁定章節全部完成,或還沒綁定章節</li>';
+
+  // 章節綁定 (checkbox)
+  const bindHtml = subs.map(s => {
+    const chs = allChapters.filter(c=>c.subject_id===s.id);
+    if (!chs.length) return '';
+    return `<div class="mb-2">
+      <div class="text-xs font-semibold mb-1" style="color:${s.color}">${escapeHtml(s.name)}</div>
+      ${chs.map(c => `
+        <label class="flex items-center gap-2 text-sm py-0.5">
+          <input type="checkbox" class="exam-ch" value="${c.id}" ${bound.has(c.id)?'checked':''}/>
+          <span class="status-badge status-${c.status}">${STATUS_LABEL[c.status]}</span>
+          <span>${escapeHtml(c.name)}</span>
+        </label>
+      `).join('')}
+    </div>`;
+  }).join('') || '<div class="text-xs text-gray-500">尚無章節</div>';
+
+  const summary = countSprint(sprintList);
+
+  openModal(`📝 ${exam.name} (${dLabel})`, `
+    <div class="mb-3 text-sm bg-yellow-50 border border-yellow-200 rounded p-2">
+      <div class="font-semibold mb-1">🎯 衝刺清單(已綁定 ∩ 未完成)</div>
+      <div class="text-xs text-gray-600 mb-2">${summary}</div>
+      <ul class="max-h-48 overflow-auto">${sprintHtml}</ul>
+    </div>
+    <details class="mt-3">
+      <summary class="cursor-pointer font-semibold text-sm text-indigo-700">⚙️ 編輯綁定章節</summary>
+      <form onsubmit="saveExamChapters(event,'${examId}')" class="mt-2 max-h-72 overflow-auto">
+        ${bindHtml}
+        <button class="mt-2 px-3 py-1 bg-indigo-500 text-white rounded">儲存綁定</button>
+      </form>
+    </details>
+  `);
+};
+function countSprint(list) {
+  if (!list.length) return '無未完成項目';
+  const ns = list.filter(c=>c.status==='not_started').length;
+  const rv = list.filter(c=>c.status==='reviewing').length;
+  const rd = list.filter(c=>c.status==='redo').length;
+  return `共 ${list.length} 章節未完成 · 未讀 ${ns} · 複習中 ${rv} · 需重做 ${rd}`;
+}
+window.saveExamChapters = async (e, examId) => {
+  e.preventDefault();
+  const checked = [...e.target.querySelectorAll('input.exam-ch:checked')].map(i=>i.value);
+  // 先全刪再插入
+  const { error: delErr } = await sb.from('exam_chapters').delete().eq('exam_id', examId);
+  if (delErr) return toast(delErr.message,'err');
+  if (checked.length) {
+    const rows = checked.map(cid => ({ exam_id: examId, chapter_id: cid }));
+    const { error } = await sb.from('exam_chapters').insert(rows);
+    if (error) return toast(error.message,'err');
+  }
+  state.examChapters = state.examChapters.filter(ec => ec.exam_id !== examId);
+  checked.forEach(cid => state.examChapters.push({ exam_id: examId, chapter_id: cid }));
+  toast('已儲存綁定');
+  openExamSprint(examId);
+  renderExams();
+};
+window.addSprintTask = async (chapterId, examDate) => {
+  const c = state.chapters.find(x=>x.id===chapterId);
+  if (!c) return;
+  // 預設排在「今天」(若考試已過則在考試當天)
+  const target = daysBetween(examDate) >= 0 ? todayISO() : examDate;
+  const { error, data } = await sb.from('tasks').insert({
+    student_id: state.currentStudentId,
+    subject_id: c.subject_id,
+    chapter_id: c.id,
+    task_date: target,
+    title: '複習:' + c.name,
+  }).select().single();
+  if (error) return toast(error.message,'err');
+  state.tasks.push(data);
+  toast(`已排入 ${target}`);
+  renderCalendar(); renderTodayTasks();
+};
+
+/* =================== CHAPTER RESOURCES =================== */
+window.openChapterResources = (chapterId) => {
+  const c = state.chapters.find(x=>x.id===chapterId);
+  if (!c) return;
+  const list = (c.resources||[]).map((r,i) => `
+    <li class="flex items-center gap-2 py-1 border-b">
+      <span class="text-lg">${resourceIcon(r.url)}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium truncate">${escapeHtml(r.title||r.url)}</div>
+        <div class="text-xs text-gray-500 truncate">${escapeHtml(r.url)}</div>
+      </div>
+      <a href="${escapeAttr(r.url)}" target="_blank" rel="noopener" class="text-xs px-2 py-1 bg-indigo-100 rounded">開啟</a>
+      <button class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded" onclick="removeResource('${chapterId}',${i})">×</button>
+    </li>`).join('') || '<li class="text-xs text-gray-500 py-1">尚無資源</li>';
+  openModal(`🔗 ${c.name} - 資源連結`, `
+    <ul class="mb-3 max-h-56 overflow-auto">${list}</ul>
+    <form onsubmit="addResource(event,'${chapterId}')" class="space-y-2">
+      <div><label class="text-xs">標題 (選填)</label><input name="title" placeholder="例如:可汗學院影片" class="w-full border rounded px-2 py-1"/></div>
+      <div><label class="text-xs">連結網址</label><input name="url" type="url" required placeholder="https://..." class="w-full border rounded px-2 py-1"/></div>
+      <button class="px-3 py-1 bg-indigo-500 text-white rounded">+ 新增資源</button>
+    </form>
+  `);
+};
+window.addResource = async (e, chapterId) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const c = state.chapters.find(x=>x.id===chapterId);
+  const newRes = [...(c.resources||[]), { title: fd.get('title')||'', url: fd.get('url') }];
+  const { error } = await sb.from('chapters').update({ resources: newRes }).eq('id', chapterId);
+  if (error) return toast(error.message,'err');
+  c.resources = newRes;
+  openChapterResources(chapterId);
+  renderSubjects();
+};
+window.removeResource = async (chapterId, idx) => {
+  const c = state.chapters.find(x=>x.id===chapterId);
+  const newRes = (c.resources||[]).filter((_,i)=>i!==idx);
+  const { error } = await sb.from('chapters').update({ resources: newRes }).eq('id', chapterId);
+  if (error) return toast(error.message,'err');
+  c.resources = newRes;
+  openChapterResources(chapterId);
+  renderSubjects();
+};
+
+/* =================== SETTINGS / RECURRING / EXPORT =================== */
+$('settingsBtn').onclick = () => openSettings();
+function openSettings() {
+  if (!state.currentStudentId) return toast('請先建立學生','err');
+  const stu = currentStudent();
+  const goal = stu?.daily_goal_minutes ?? 60;
+  const subs = studentSubjects();
+  const subOpt = `<option value="">(無學科)</option>` + subs.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+
+  const tmpls = state.recurringTemplates.filter(r=>r.student_id===state.currentStudentId);
+  const tmplList = tmpls.length ? tmpls.map(t => {
+    const s = subs.find(x=>x.id===t.subject_id);
+    return `<li class="flex items-center justify-between gap-2 py-1 border-b text-sm">
+      <span>每週${WEEKDAY_LABEL[t.weekday]} · ${s?`<span style="color:${s.color}">${escapeHtml(s.name)}</span> · `:''}${escapeHtml(t.title)} ${t.active?'':'<span class="text-gray-400">(停用)</span>'}</span>
+      <span>
+        <button class="text-xs px-2 py-1 bg-gray-100 rounded" onclick="toggleTemplate('${t.id}')">${t.active?'停用':'啟用'}</button>
+        <button class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded" onclick="deleteTemplate('${t.id}')">刪</button>
+      </span>
+    </li>`;
+  }).join('') : '<li class="text-xs text-gray-500">尚無範本</li>';
+
+  openModal('⚙️ 設定', `
+    <!-- 每日目標 -->
+    <section class="mb-4">
+      <h4 class="font-semibold mb-2">🎯 每日讀書目標</h4>
+      <form onsubmit="saveGoal(event)" class="flex items-end gap-2">
+        <div><label class="text-xs">分鐘 / 天</label>
+          <input name="minutes" type="number" min="1" value="${goal}" class="border rounded px-2 py-1 w-24"/></div>
+        <button class="px-3 py-1 bg-indigo-500 text-white rounded">儲存</button>
+        <span class="text-xs text-gray-500">影響熱力圖達標判定</span>
+      </form>
+    </section>
+
+    <!-- 重複任務範本 -->
+    <section class="mb-4">
+      <h4 class="font-semibold mb-2">🔁 重複任務範本</h4>
+      <ul class="mb-2 max-h-40 overflow-auto">${tmplList}</ul>
+      <form onsubmit="addTemplate(event)" class="space-y-2 bg-gray-50 p-2 rounded">
+        <div class="flex gap-2 flex-wrap">
+          <select name="weekday" class="border rounded px-2 py-1">
+            ${[1,2,3,4,5,6,0].map(w=>`<option value="${w}">週${WEEKDAY_LABEL[w]}</option>`).join('')}
+          </select>
+          <select name="subject_id" class="border rounded px-2 py-1 flex-1 min-w-[100px]">${subOpt}</select>
+        </div>
+        <input name="title" required placeholder="任務內容(例:英文聽力 30 分)" class="w-full border rounded px-2 py-1"/>
+        <button class="px-3 py-1 bg-indigo-500 text-white rounded text-sm">+ 新增範本</button>
+      </form>
+      <form onsubmit="generateRecurring(event)" class="flex items-end gap-2 mt-3 bg-yellow-50 p-2 rounded">
+        <div><label class="text-xs">產生未來幾週?</label>
+          <input name="weeks" type="number" min="1" max="52" value="4" class="border rounded px-2 py-1 w-20"/></div>
+        <button class="px-3 py-1 bg-yellow-500 text-white rounded text-sm">⚡ 一鍵產生任務</button>
+      </form>
+    </section>
+
+    <!-- 匯出 / 匯入 -->
+    <section class="mb-4">
+      <h4 class="font-semibold mb-2">💾 備份 / 還原</h4>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="exportData()" class="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">📤 匯出全部資料 (JSON)</button>
+        <button onclick="document.getElementById('importFile').click()" class="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm">📥 匯入 JSON</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-1">匯入會在現有資料上「附加」(以新 ID 重生),不會覆蓋既有學生。</p>
+    </section>
+  `);
+}
+window.saveGoal = async (e) => {
+  e.preventDefault();
+  const m = parseInt(new FormData(e.target).get('minutes'),10);
+  if (!m || m<=0) return;
+  const { error } = await sb.from('students').update({ daily_goal_minutes: m }).eq('id', state.currentStudentId);
+  if (error) return toast(error.message,'err');
+  currentStudent().daily_goal_minutes = m;
+  toast('已儲存目標');
+  renderHeatmap();
+  openSettings();
+};
+window.addTemplate = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const { error, data } = await sb.from('recurring_templates').insert({
+    student_id: state.currentStudentId,
+    subject_id: fd.get('subject_id') || null,
+    title: fd.get('title'),
+    weekday: parseInt(fd.get('weekday'),10),
+  }).select().single();
+  if (error) return toast(error.message,'err');
+  state.recurringTemplates.push(data);
+  openSettings();
+};
+window.toggleTemplate = async (id) => {
+  const t = state.recurringTemplates.find(x=>x.id===id);
+  const { error } = await sb.from('recurring_templates').update({ active: !t.active }).eq('id', id);
+  if (error) return toast(error.message,'err');
+  t.active = !t.active;
+  openSettings();
+};
+window.deleteTemplate = async (id) => {
+  if (!confirm('刪除此範本?')) return;
+  const { error } = await sb.from('recurring_templates').delete().eq('id', id);
+  if (error) return toast(error.message,'err');
+  state.recurringTemplates = state.recurringTemplates.filter(x=>x.id!==id);
+  openSettings();
+};
+window.generateRecurring = async (e) => {
+  e.preventDefault();
+  const weeks = parseInt(new FormData(e.target).get('weeks'),10);
+  const tmpls = state.recurringTemplates.filter(r=>r.student_id===state.currentStudentId && r.active);
+  if (!tmpls.length) return toast('沒有啟用的範本','err');
+  const today = new Date(todayISO());
+  const tasks = [];
+  for (const t of tmpls) {
+    for (let w=0; w<weeks; w++) {
+      // 找未來第 w 週符合 weekday 的日期
+      const base = new Date(today);
+      const offset = ((t.weekday - base.getDay()) + 7) % 7 + w*7;
+      base.setDate(base.getDate() + offset);
+      const iso = isoOfDate(base);
+      // 避免重複(同學生、同 title、同日期)
+      const dup = state.tasks.some(x => x.student_id===t.student_id && x.task_date===iso && x.title===t.title);
+      if (dup) continue;
+      tasks.push({
+        student_id: t.student_id, subject_id: t.subject_id,
+        title: t.title, task_date: iso,
+      });
+    }
+  }
+  if (!tasks.length) { toast('未產生(可能都已存在)'); return; }
+  const { error, data } = await sb.from('tasks').insert(tasks).select();
+  if (error) return toast(error.message,'err');
+  data.forEach(d => state.tasks.push(d));
+  toast(`已產生 ${data.length} 筆任務`);
+  renderCalendar(); renderTodayTasks();
+};
+
+window.exportData = () => {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    students: state.students,
+    subjects: state.subjects,
+    chapters: state.chapters,
+    exams: state.exams,
+    examChapters: state.examChapters,
+    tasks: state.tasks,
+    studyLogs: state.studyLogs,
+    recurringTemplates: state.recurringTemplates,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `study-planner-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已匯出 JSON');
+};
+$('importFile').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  e.target.value = '';
+  if (!confirm('將從 JSON 匯入資料,並以新 ID 附加到現有資料(不會覆蓋既有學生)。確定?')) return;
+  try {
+    const text = await f.text();
+    const j = JSON.parse(text);
+    await importPayload(j);
+  } catch (err) {
+    toast('匯入失敗:' + err.message, 'err');
+  }
+};
+async function importPayload(j) {
+  // 重映射所有 ID,避免衝突
+  const map = { student:{}, subject:{}, chapter:{}, exam:{}, template:{} };
+  // students
+  for (const s of (j.students||[])) {
+    const { error, data } = await sb.from('students').insert({
+      name: s.name + ' (匯入)', grade: s.grade, daily_goal_minutes: s.daily_goal_minutes||60,
+    }).select().single();
+    if (error) throw error;
+    map.student[s.id] = data.id;
+    state.students.push(data);
+  }
+  // subjects
+  for (const s of (j.subjects||[])) {
+    const sid = map.student[s.student_id]; if (!sid) continue;
+    const { error, data } = await sb.from('subjects').insert({ student_id: sid, name: s.name, color: s.color }).select().single();
+    if (error) throw error;
+    map.subject[s.id] = data.id; state.subjects.push(data);
+  }
+  // chapters
+  for (const c of (j.chapters||[])) {
+    const sid = map.subject[c.subject_id]; if (!sid) continue;
+    const { error, data } = await sb.from('chapters').insert({
+      subject_id: sid, name: c.name, status: c.status||'not_started',
+      order_index: c.order_index||0, resources: c.resources||[],
+    }).select().single();
+    if (error) throw error;
+    map.chapter[c.id] = data.id; state.chapters.push(data);
+  }
+  // exams
+  for (const e of (j.exams||[])) {
+    const sid = map.student[e.student_id]; if (!sid) continue;
+    const { error, data } = await sb.from('exams').insert({
+      student_id: sid, name: e.name, exam_date: e.exam_date, description: e.description,
+    }).select().single();
+    if (error) throw error;
+    map.exam[e.id] = data.id; state.exams.push(data);
+  }
+  // exam_chapters
+  const ecRows = (j.examChapters||[]).map(ec => ({
+    exam_id: map.exam[ec.exam_id], chapter_id: map.chapter[ec.chapter_id]
+  })).filter(r => r.exam_id && r.chapter_id);
+  if (ecRows.length) {
+    const { error, data } = await sb.from('exam_chapters').insert(ecRows).select();
+    if (error) throw error;
+    data.forEach(d => state.examChapters.push(d));
+  }
+  // tasks
+  const taskRows = (j.tasks||[]).map(t => ({
+    student_id: map.student[t.student_id],
+    subject_id: t.subject_id ? map.subject[t.subject_id] : null,
+    chapter_id: t.chapter_id ? map.chapter[t.chapter_id] : null,
+    title: t.title, task_date: t.task_date, done: t.done||false,
+  })).filter(r => r.student_id);
+  if (taskRows.length) {
+    const { error, data } = await sb.from('tasks').insert(taskRows).select();
+    if (error) throw error;
+    data.forEach(d => state.tasks.push(d));
+  }
+  // study_logs
+  const logRows = (j.studyLogs||[]).map(l => ({
+    student_id: map.student[l.student_id],
+    subject_id: l.subject_id ? map.subject[l.subject_id] : null,
+    log_date: l.log_date, minutes: l.minutes, note: l.note,
+  })).filter(r => r.student_id);
+  if (logRows.length) {
+    const { error, data } = await sb.from('study_logs').insert(logRows).select();
+    if (error) throw error;
+    data.forEach(d => state.studyLogs.push(d));
+  }
+  // recurring_templates
+  const rtRows = (j.recurringTemplates||[]).map(r => ({
+    student_id: map.student[r.student_id],
+    subject_id: r.subject_id ? map.subject[r.subject_id] : null,
+    title: r.title, weekday: r.weekday, active: r.active!==false,
+  })).filter(r => r.student_id);
+  if (rtRows.length) {
+    const { error, data } = await sb.from('recurring_templates').insert(rtRows).select();
+    if (error) throw error;
+    data.forEach(d => state.recurringTemplates.push(d));
+  }
+  toast('匯入完成');
+  closeModal();
+  renderAll();
+}
+
+/* =================== RENDER ALL =================== */
+function renderAll() {
+  $('todayLabel').textContent = '今天 · ' + fmtDate(todayISO());
+  renderStudentSelect();
+  renderExams();
+  renderTodayTasks();
+  renderSubjects();
+  renderLogForm();
+  renderCalendar();
+  renderHeatmap();
+  renderCharts();
+}
+
+/* =================== INIT =================== */
+applyBackground();
+loadAll();
+</script>
+</body>
+</html>
