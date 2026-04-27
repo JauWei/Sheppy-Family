@@ -918,6 +918,132 @@
     .msg-item:hover { transform: none; }
     .link-card:hover { filter: none; }
   }
+  /* ========== 蜥蜴 QA 機器人 ========== */
+  #tokage-fab {
+    position: fixed;
+    left: 20px; bottom: 20px;
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #fff center/cover no-repeat;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    border: 3px solid #a8d8ea;
+    cursor: pointer;
+    z-index: 100;
+    transition: transform .25s;
+    animation: tokage-bob 3s ease-in-out infinite;
+  }
+  #tokage-fab:hover { transform: scale(1.1) rotate(-5deg); }
+  @keyframes tokage-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  #tokage-panel {
+    position: fixed;
+    left: 20px; bottom: 110px;
+    width: 360px; height: 500px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 140px);
+    background: rgba(26,26,46,0.97);
+    backdrop-filter: blur(16px);
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 101;
+    border: 2px solid #a8d8ea;
+  }
+  #tokage-panel.open { display: flex; }
+  .tokage-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #a8d8ea, #b6e0d4);
+    color: #2a4a5a;
+  }
+  .tokage-header img {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #fff; object-fit: cover;
+  }
+  .tokage-header .name { font-weight: bold; font-size: 1rem; }
+  .tokage-header .sub { font-size: 0.75rem; opacity: 0.7; }
+  .tokage-header .close-btn {
+    margin-left: auto;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.4);
+    color: #2a4a5a;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .tokage-msgs {
+    flex: 1; overflow-y: auto;
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .tokage-msgs::-webkit-scrollbar { width: 5px; }
+  .tokage-msgs::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  .tokage-msg { display: flex; gap: 8px; align-items: flex-end; }
+  .tokage-msg.user { justify-content: flex-end; }
+  .tokage-msg .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #fff center/cover no-repeat;
+    flex-shrink: 0;
+    border: 2px solid #a8d8ea;
+  }
+  .tokage-bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .tokage-msg.bot .tokage-bubble {
+    background: rgba(168,216,234,0.2);
+    color: #fff;
+    border-bottom-left-radius: 4px;
+  }
+  .tokage-msg.user .tokage-bubble {
+    background: rgba(108,99,255,0.4);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .tokage-typing { opacity: 0.6; font-style: italic; }
+  .tokage-input {
+    display: flex; gap: 6px;
+    padding: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+  }
+  .tokage-input input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 0.92rem;
+    outline: none;
+  }
+  .tokage-input input:focus { border-color: #a8d8ea; }
+  .tokage-input button {
+    padding: 0 18px;
+    border-radius: 20px;
+    border: none;
+    background: #a8d8ea;
+    color: #2a4a5a;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  @media (max-width: 480px) {
+    #tokage-fab { width: 60px; height: 60px; left: 14px; bottom: 14px; }
+    #tokage-panel {
+      left: 10px; right: 10px; bottom: 90px;
+      width: auto; max-width: none;
+      height: 70vh;
+    }
+  }
 </style>
 
 <svg width="0" height="0" style="position:absolute">
@@ -1117,6 +1243,23 @@
       <button class="send-btn" onclick="sendMessage()">送出</button>
     </div>
   </div>
+</div>
+<!-- 蜥蜴機器人 -->
+<div id="tokage-fab" onclick="toggleTokage()" title="跟蜥蜴聊聊"></div>
+<div id="tokage-panel">
+  <div class="tokage-header">
+    <img id="tokage-avatar-header" alt="">
+    <div>
+      <div class="name">蜥蜴</div>
+      <div class="sub">悄悄話夥伴 (´･ω･`)</div>
+    </div>
+    <button class="close-btn" onclick="toggleTokage()">×</button>
+  </div>
+  <div class="tokage-msgs" id="tokage-msgs"></div>
+  <form class="tokage-input" onsubmit="return tokageSend(event)">
+    <input id="tokage-text" placeholder="跟蜥蜴說說話吧~" autocomplete="off" maxlength="300" required>
+    <button>送</button>
+  </form>
 </div>
 
 <!-- 燈箱 -->
@@ -2072,6 +2215,81 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(renderLinks, 200);
 });
+// ================================================================
+//  蜥蜴 QA 機器人
+// ================================================================
+const TOKAGE_API = 'https://bpvybuvjbdfgrjgwiqkb.supabase.co/functions/v1/chat';
+const TOKAGE_AVATAR = 'https://bpvybuvjbdfgrjgwiqkb.supabase.co/storage/v1/object/public/bot/tokage.png';
+
+const tokageHistory = [];
+
+document.getElementById('tokage-fab').style.backgroundImage = `url("${TOKAGE_AVATAR}")`;
+document.getElementById('tokage-avatar-header').src = TOKAGE_AVATAR;
+
+function toggleTokage() {
+  const panel = document.getElementById('tokage-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open') && tokageHistory.length === 0) {
+    tokageAppendBot('嗨~小朋友!我是蜥蜴呢~今天想跟我聊什麼呀? (´･ω･`)');
+  }
+  if (panel.classList.contains('open')) {
+    setTimeout(() => document.getElementById('tokage-text').focus(), 100);
+  }
+}
+
+function tokageAppendBot(text) {
+  const box = document.getElementById('tokage-msgs');
+  const div = document.createElement('div');
+  div.className = 'tokage-msg bot';
+  div.innerHTML = `<div class="avatar" style="background-image:url('${TOKAGE_AVATAR}')"></div>
+                   <div class="tokage-bubble">${esc(text)}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function tokageAppendUser(text) {
+  const box = document.getElementById('tokage-msgs');
+  const div = document.createElement('div');
+  div.className = 'tokage-msg user';
+  div.innerHTML = `<div class="tokage-bubble">${esc(text)}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function tokageSend(e) {
+  e.preventDefault();
+  const input = document.getElementById('tokage-text');
+  const text = input.value.trim();
+  if (!text) return false;
+  input.value = '';
+  tokageAppendUser(text);
+  tokageHistory.push({ role: 'user', parts: [{ text }] });
+
+  const thinking = tokageAppendBot('正在想想看...');
+  thinking.querySelector('.tokage-bubble').classList.add('tokage-typing');
+
+  try {
+    const r = await fetch(TOKAGE_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ messages: tokageHistory.slice(-20) })
+    });
+    const { text: reply } = await r.json();
+    thinking.querySelector('.tokage-bubble').textContent = reply;
+    thinking.querySelector('.tokage-bubble').classList.remove('tokage-typing');
+    tokageHistory.push({ role: 'model', parts: [{ text: reply }] });
+  } catch (err) {
+    thinking.querySelector('.tokage-bubble').textContent = '嗚…我連不上海了,等等再聊好嗎? (´･ω･`)';
+    thinking.querySelector('.tokage-bubble').classList.remove('tokage-typing');
+  }
+  return false;
+}
+
 </script>
 </body>
 </html>
