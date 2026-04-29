@@ -1226,6 +1226,49 @@
     .mood-btn { padding: 10px 4px; }
     .mood-btn .em { font-size: 1.5rem; }
   }
+
+/* 生日彩蛋 */
+.bday-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 400;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bday-overlay.active { display: block; }
+.bday-overlay .confetti {
+  position: absolute;
+  font-size: 2rem;
+  animation: bday-fall linear forwards;
+  top: -10%;
+}
+@keyframes bday-fall {
+  to { transform: translateY(110vh) rotate(720deg); opacity: 0.6; }
+}
+.bday-banner {
+  position: fixed;
+  top: 30%; left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ff6b9d, #ffd93d, #6bcb77);
+  color: #fff;
+  padding: 24px 36px;
+  border-radius: 20px;
+  font-size: 1.6rem;
+  font-weight: bold;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  z-index: 401;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  display: none;
+  animation: bday-bounce 0.6s ease;
+}
+.bday-banner.active { display: block; }
+@keyframes bday-bounce {
+  0% { transform: translateX(-50%) scale(0.3); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.1); }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
 </style>
 
 <svg width="0" height="0" style="position:absolute">
@@ -1471,6 +1514,11 @@
     <button class="mood-skip" onclick="saveMood('skip')">今天不想說 ~</button>
   </div>
 </div>
+
+<!-- 生日彩蛋 -->
+<div class="bday-overlay" id="bdayOverlay"></div>
+<div class="bday-banner" id="bdayBanner" onclick="this.classList.remove('active');document.getElementById('bdayOverlay').classList.remove('active');"></div>
+
 
 <!-- 燈箱 -->
 <div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
@@ -2107,7 +2155,8 @@ function renderMembers() {
   appMembers.forEach(m => {
     const chip = document.createElement('span');
     chip.className = 'member-chip';
-    chip.innerHTML = `${esc(m.name)}<span class="remove-member" onclick="removeMember('${m.id}')" title="移除">✕</span>`;
+    const bdayLabel = m.birthday ? ` 🎂${m.birthday}` : '';
+    chip.innerHTML = `${esc(m.name)}<span style="opacity:0.5;cursor:pointer;font-size:0.75rem" onclick="setBirthday('${m.id}','${esc(m.name)}')" title="設定生日">${bdayLabel || ' 🎂'}</span><span class="remove-member" onclick="removeMember('${m.id}')" title="移除">✕</span>`;
     bar.appendChild(chip);
   });
   const addBtn = document.createElement('button');
@@ -2118,6 +2167,17 @@ function renderMembers() {
     if (name && name.trim()) addMemberToDb(name.trim());
   };
   bar.appendChild(addBtn);
+}
+
+async function setBirthday(id, name) {
+  const bday = prompt(`設定 ${name} 的生日 (格式 MM-DD,例如 03-15):`);
+  if (!bday) return;
+  if (!/^\d{2}-\d{2}$/.test(bday)) { alert('格式錯誤,請用 MM-DD'); return; }
+  const { error } = await sb.from('members').update({ birthday: bday }).eq('id', id);
+  if (error) { alert('儲存失敗:' + error.message); return; }
+  const m = appMembers.find(x => x.id === id);
+  if (m) m.birthday = bday;
+  renderMembers();
 }
 
 function removeMember(id) {
@@ -2481,6 +2541,44 @@ let tokagePhotoB64 = null;
 let tokageRecognition = null;
 let tokageRecording = false;
 
+// 取得目前時段
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return 'morning';
+  if (h >= 11 && h < 14) return 'noon';
+  if (h >= 14 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 21) return 'evening';
+  return 'night';
+}
+
+const TIME_PREFIXES = {
+  morning:   { emoji: '☀️', tag: '早安', mood: '精神飽滿' },
+  noon:      { emoji: '🍱', tag: '中午好', mood: '有點想睡' },
+  afternoon: { emoji: '✨', tag: '午安', mood: '活潑' },
+  evening:   { emoji: '🌆', tag: '傍晚好', mood: '溫暖' },
+  night:     { emoji: '🌙', tag: '夜深了', mood: '想睡覺' }
+};
+
+// 動態打招呼(時段 + 角色個性)
+function makeGreeting() {
+  const c = CHARACTERS[currentChar];
+  const t = TIME_PREFIXES[getTimeOfDay()];
+  const isLate = getTimeOfDay() === 'night';
+  if (isLate) {
+    const sleepyGreets = {
+      tokage: '小朋友~這麼晚還沒睡呀? 我都快游回海裡了喔… 🌙',
+      neko: '已經這麼晚了呀…我有點想抓抓牆壁睡覺了喵~ 😴',
+      penguin: '夜深了呢…書本上的字都在打架了 (｡-`ω´-)',
+      pochacco: '嗯…我也該睡覺充電了!明天才有力氣玩~ 😪',
+      purin: '布丁布丁~ 我已經在打哈欠了…一起睡好嗎? 💤',
+      cinnamoroll: '雲朵都變成棉被了呢~小朋友也快去躲進棉被吧 ☁️'
+    };
+    return sleepyGreets[currentChar] || c.greeting;
+  }
+  return `${t.emoji} ${t.tag}~ ${c.greeting}`;
+}
+
+
 // 預載頭像 + 設定 FAB
 function applyCharStyle() {
   const c = CHARACTERS[currentChar];
@@ -2561,16 +2659,52 @@ function appendUser(text, imgUrl, save = true) {
   if (save) charHistories[currentChar].push({ role: 'user', text, image: imgUrl });
 }
 
+const DAILY_QUESTIONS = [
+  '如果可以變成一種動物,你想變什麼呢? 🦄',
+  '你今天最開心的事是什麼呀? ✨',
+  '如果有魔法,你最想做什麼? 🪄',
+  '想吃什麼當點心呢? 🍪',
+  '你最喜歡哪個季節呢? 🌸',
+  '如果可以去任何地方,你想去哪裡? ✈️',
+  '最近有沒有看什麼好看的? 📺',
+  '你有沒有秘密想跟我說呀? 🤫',
+  '如果可以變超能力,你想要什麼能力? 💫',
+  '今天有沒有做什麼新嘗試呀? 🌱',
+  '你最想跟誰一起玩呢? 👫',
+  '如果可以開一間店,你想開什麼店? 🏪',
+  '今天最好笑的事情是什麼? 😆',
+  '你最喜歡的玩具是什麼呢? 🧸',
+  '如果可以發明東西,你想發明什麼? 💡',
+  '想跟我分享你最近學到的東西嗎? 📚',
+  '如果有一整天放假,你想做什麼? 🎈',
+  '你最想感謝誰呢? 💝',
+  '今天有沒有覺得很厲害的小朋友? 🌟',
+  '想吃什麼晚餐呀? 🍱'
+];
+
+function getDailyQuestion() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem('tokage_q_date') === today) return null;
+  localStorage.setItem('tokage_q_date', today);
+  return DAILY_QUESTIONS[Math.floor(Math.random() * DAILY_QUESTIONS.length)];
+}
+
 function toggleTokage() {
   const panel = document.getElementById('tokage-panel');
   panel.classList.toggle('open');
   if (panel.classList.contains('open')) {
     if (charHistories[currentChar].length === 0) {
-      appendBot(CHARACTERS[currentChar].greeting);
+      const greeting = makeGreeting();
+      appendBot(greeting);
+      const dailyQ = getDailyQuestion();
+      if (dailyQ) {
+        setTimeout(() => appendBot(`對了~今天我想問你: ${dailyQ}`), 800);
+      }
     }
     setTimeout(() => document.getElementById('tokage-text').focus(), 100);
   }
 }
+
 
 // 拍照處理
 document.getElementById('tokage-photo-input').addEventListener('change', async function() {
@@ -2714,6 +2848,59 @@ async function shareToBoard(btn, text) {
 }
 
 // 心情打卡
+// 生日檢查
+function checkBirthday() {
+  if (!appMembers || appMembers.length === 0) return;
+  const today = new Date();
+  const md = String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  const todayStr = today.toISOString().slice(0, 10);
+  const seenKey = 'bday_seen_' + todayStr;
+  if (localStorage.getItem(seenKey)) return;
+
+  const birthdayMember = appMembers.find(m => m.birthday === md);
+  if (!birthdayMember) return;
+
+  showBirthdayCelebration(birthdayMember.name);
+  localStorage.setItem(seenKey, '1');
+
+  // 自動發訊息到留言板
+  addMessage({
+    sender: '🎂 蛋糕',
+    recipient: birthdayMember.name,
+    body: `今天是 ${birthdayMember.name} 的生日喔! 🎉🎂\n所有夥伴一起祝你生日快樂~`,
+    photo_url: '',
+    mood: 'love',
+    pinned: true,
+    reactions: {},
+    replies: []
+  });
+}
+
+function showBirthdayCelebration(name) {
+  const banner = document.getElementById('bdayBanner');
+  banner.innerHTML = `🎂 生日快樂 ${esc(name)}! 🎉<br><span style="font-size:0.9rem;opacity:0.9;">點我關閉</span>`;
+  banner.classList.add('active');
+
+  const overlay = document.getElementById('bdayOverlay');
+  overlay.innerHTML = '';
+  overlay.classList.add('active');
+  const emojis = ['🎂', '🎉', '🎊', '🎈', '🌟', '💝', '🍰', '🎁'];
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    c.style.left = Math.random() * 100 + '%';
+    c.style.animationDuration = (3 + Math.random() * 4) + 's';
+    c.style.animationDelay = Math.random() * 2 + 's';
+    overlay.appendChild(c);
+  }
+
+  setTimeout(() => {
+    banner.classList.remove('active');
+    overlay.classList.remove('active');
+  }, 12000);
+}
+
 async function checkMoodToday() {
   if (appMembers.length === 0) return;
   let member = localStorage.getItem('tokage_member');
@@ -2773,7 +2960,10 @@ initMic();
 const moodCheckTimer = setInterval(() => {
   if (appMembers.length > 0 || appMembers === null) {
     clearInterval(moodCheckTimer);
-    setTimeout(checkMoodToday, 800);
+    setTimeout(() => {
+      checkBirthday();
+      checkMoodToday();
+    }, 800);
   }
 }, 500);
 setTimeout(() => clearInterval(moodCheckTimer), 10000);
